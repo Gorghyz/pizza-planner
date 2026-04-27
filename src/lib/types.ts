@@ -78,6 +78,8 @@ export type BusinessLocation = {
   address: string;
   city: string;
   notes: string;
+  latitude: number | null;
+  longitude: number | null;
   isActive: boolean;
   isDefault: boolean;
   displayOrder: number;

@@ -17,6 +17,8 @@ type LocationResponse = {
     address: string;
     city: string;
     notes: string;
+    latitude: number | null;
+    longitude: number | null;
     isActive: boolean;
     isDefault: boolean;
     displayOrder: number;
@@ -35,6 +37,8 @@ type LocationFormState = {
   address: string;
   city: string;
   notes: string;
+  latitude: string;
+  longitude: string;
   isActive: boolean;
   isDefault: boolean;
 };
@@ -70,6 +74,10 @@ function locationToForm(location: LocationWithHours | null): LocationFormState {
     address: location?.address ?? "",
     city: location?.city ?? "",
     notes: location?.notes ?? "",
+    latitude:
+      typeof location?.latitude === "number" ? String(location.latitude) : "",
+    longitude:
+      typeof location?.longitude === "number" ? String(location.longitude) : "",
     isActive: location?.isActive ?? true,
     isDefault: location?.isDefault ?? false,
   };
@@ -295,7 +303,7 @@ export default function BusinessSettingsAdmin({
           <div>
             <h2>{selectedLocation ? "Modifier le lieu" : "Nouveau lieu"}</h2>
             <p className="small">
-              Gère les lieux d&apos;ouverture et leurs horaires hebdomadaires.
+              Gère les lieux d&apos;ouverture, les coordonnées GPS et leurs horaires hebdomadaires.
             </p>
           </div>
 
@@ -353,6 +361,42 @@ export default function BusinessSettingsAdmin({
               }
               placeholder="Ex. Place de l'église"
             />
+          </div>
+
+          <div className="field-grid field-grid-2">
+            <div className="field">
+              <label htmlFor="location-latitude">Latitude</label>
+              <input
+                id="location-latitude"
+                type="text"
+                inputMode="decimal"
+                value={locationForm.latitude}
+                onChange={(event) =>
+                  setLocationForm((previous) => ({
+                    ...previous,
+                    latitude: event.target.value,
+                  }))
+                }
+                placeholder="Ex. 48.123456"
+              />
+            </div>
+
+            <div className="field">
+              <label htmlFor="location-longitude">Longitude</label>
+              <input
+                id="location-longitude"
+                type="text"
+                inputMode="decimal"
+                value={locationForm.longitude}
+                onChange={(event) =>
+                  setLocationForm((previous) => ({
+                    ...previous,
+                    longitude: event.target.value,
+                  }))
+                }
+                placeholder="Ex. 7.654321"
+              />
+            </div>
           </div>
 
           <div className="field">
@@ -552,6 +596,15 @@ export default function BusinessSettingsAdmin({
                 <div className="catalog-section">
                   <strong>Adresse</strong>
                   <div className="multiline-text">{location.address || "—"}</div>
+                </div>
+
+                <div className="catalog-section">
+                  <strong>Coordonnées GPS</strong>
+                  <div className="multiline-text">
+                    {location.latitude !== null && location.longitude !== null
+                      ? `${location.latitude}, ${location.longitude}`
+                      : "—"}
+                  </div>
                 </div>
 
                 <div className="catalog-section">

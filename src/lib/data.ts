@@ -60,6 +60,8 @@ const businessLocationSelectFields = `
   address,
   city,
   notes,
+  latitude,
+  longitude,
   is_active AS "isActive",
   is_default AS "isDefault",
   display_order AS "displayOrder"
@@ -134,6 +136,8 @@ type BusinessLocationWriteInput = {
   address: string;
   city: string;
   notes: string;
+  latitude: number | null;
+  longitude: number | null;
   isActive: boolean;
   isDefault: boolean;
 };
@@ -512,6 +516,8 @@ export async function createBusinessLocation(
           address,
           city,
           notes,
+          latitude,
+          longitude,
           is_active,
           is_default,
           display_order
@@ -523,6 +529,8 @@ export async function createBusinessLocation(
           $4,
           $5,
           $6,
+          $7,
+          $8,
           next_order.value
         FROM next_order
         RETURNING
@@ -533,6 +541,8 @@ export async function createBusinessLocation(
         input.address,
         input.city,
         input.notes,
+        input.latitude,
+        input.longitude,
         input.isActive,
         input.isDefault,
       ],
@@ -615,8 +625,10 @@ export async function updateBusinessLocation(
           address = $3,
           city = $4,
           notes = $5,
-          is_active = $6,
-          is_default = $7
+          latitude = $6,
+          longitude = $7,
+          is_active = $8,
+          is_default = $9
         WHERE id = $1
         RETURNING
           ${businessLocationSelectFields};
@@ -627,6 +639,8 @@ export async function updateBusinessLocation(
         input.address,
         input.city,
         input.notes,
+        input.latitude,
+        input.longitude,
         input.isActive,
         input.isDefault,
       ],
