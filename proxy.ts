@@ -1,53 +1,75 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import {
+  BUSINESS_SESSION_COOKIE,
+  isBusinessSessionValid,
+  sanitizeNextPath,
+} from "@/lib/auth";
 
-function unauthorized() {
-  return new NextResponse("Authentification requise.", {
-    status: 401,
-    headers: {
-      "WWW-Authenticate": 'Basic realm="Business pizzas", charset="UTF-8"',
-    },
-  });
+function isProtectedPath(pathname: string): boolean {
+  if (pathname.startsWith("/api/admin/")) {
+    return true;
+  }
+
+  if (pathname === "/api/orders") {
+    return true;
+  }
+
+  if (pathname === "/api/quote/orders") {
+    return true;
+  }
+
+  if (pathname.startsWith("/business/")) {
+    return pathname !== "/business/login" && pathname !== "/business/logout";
+  }
+
+  if (pathname === "/business") {
+    return true;
+  }
+
+  if (pathname.startsWith("/admin/")) {
+    return true;
+  }
+
+  return false;
 }
 
 export function proxy(request: NextRequest) {
-  const adminUser = process.env.ADMIN_USER;
-  const adminPassword = process.env.ADMIN_PASSWORD;
+  const { pathname, search } = request.nextUrl;
 
-  if (!adminUser || !adminPassword) {
-    return new NextResponse(
-      "ADMIN_USER et ADMIN_PASSWORD doivent être définis dans .env.local",
-      { status: 500 },
+  if (!isProtectedPath(pathname)) {
+    return NextResponse.next();
+  }
+
+  const token = request.cookies.get(BUSINESS_SESSION_COOKIE)?.value;
+  const isAuthenticated = isBusinessSessionValid(token);
+
+  if (isAuthenticated) {
+    return NextResponse.next();
+  }
+
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.json(
+      { error: "Authentification business requise." },
+      { status: 401 },
     );
   }
 
-  const authorization = request.headers.get("authorization");
+  const loginUrl = new URL("/business/login", request.url);
+  loginUrl.searchParams.set(
+    "next",
+    sanitizeNextPath(`${pathname}${search}`),
+  );
 
-  if (!authorization || !authorization.startsWith("Basic ")) {
-    return unauthorized();
-  }
-
-  try {
-    const base64Credentials = authorization.slice("Basic ".length);
-    const decoded = atob(base64Credentials);
-    const separatorIndex = decoded.indexOf(":");
-
-    if (separatorIndex === -1) {
-      return unauthorized();
-    }
-
-    const user = decoded.slice(0, separatorIndex);
-    const password = decoded.slice(separatorIndex + 1);
-
-    if (user === adminUser && password === adminPassword) {
-      return NextResponse.next();
-    }
-  } catch {
-    return unauthorized();
-  }
-
-  return unauthorized();
+  return NextResponse.redirect(loginUrl);
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/business/:path*", "/api/admin/:path*"],
+  matcher: [
+    "/business/:path*",
+    "/admin/:path*",
+    "/api/admin/:path*",
+    "/api/orders",
+    "/api/quote/orders",
+  ],
 };

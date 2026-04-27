@@ -6,8 +6,29 @@ import {
 
 export const runtime = "nodejs";
 
+function isLocalHost(host: string): boolean {
+  return (
+    host.startsWith("localhost") ||
+    host.startsWith("127.0.0.1") ||
+    host.startsWith("192.168.")
+  );
+}
+
 export async function GET(request: Request) {
-  const response = NextResponse.redirect(new URL("/", request.url));
+  const forwardedHost =
+    request.headers.get("x-forwarded-host") ??
+    request.headers.get("host") ??
+    "localhost:3000";
+
+  const forwardedProtoHeader = request.headers.get("x-forwarded-proto");
+  const protocol = forwardedProtoHeader
+    ? forwardedProtoHeader
+    : isLocalHost(forwardedHost)
+      ? "http"
+      : "https";
+
+  const redirectUrl = new URL("/", `${protocol}://${forwardedHost}`);
+  const response = NextResponse.redirect(redirectUrl);
 
   response.cookies.delete(BUSINESS_SESSION_COOKIE);
 
