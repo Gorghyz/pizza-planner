@@ -730,6 +730,23 @@ button:disabled {
   margin-top: 16px;
 }
 
+.hours-admin-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.hour-admin-row {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fcfbf9;
+  padding: 14px;
+}
+
+.hour-admin-title {
+  font-weight: 800;
+  margin-bottom: 10px;
+}
+
 @media (max-width: 960px) {
   .layout-grid,
   .admin-manager-grid,

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { getPizzasByIds, getTodayOccupancy } from "@/lib/data";
-import { SERVICE_OPENING_TIME } from "@/lib/config";
+import { getPizzasByIds, getTodayOccupancy, getTodayServiceSettings } from "@/lib/data";
 import { suggestSlots } from "@/lib/scheduler";
 import type { DraftItem, QuoteResponse } from "@/lib/types";
 
@@ -19,7 +18,6 @@ function normalizeItems(raw: unknown): DraftItem[] {
     }
 
     const candidate = entry as Record<string, unknown>;
-
     const pizzaId = Number(candidate.pizzaId);
     const quantity = Number(candidate.quantity);
     const comment =
@@ -51,12 +49,17 @@ export async function POST(request: Request) {
       items?: unknown;
     };
 
-    const desiredTime =
-      typeof body.desiredTime === "string" && body.desiredTime.trim() !== ""
-        ? body.desiredTime
-        : SERVICE_OPENING_TIME;
-
     const items = normalizeItems(body.items);
+    const todayService = await getTodayServiceSettings();
+
+    if (!todayService.isOpen) {
+      return NextResponse.json(
+        {
+          error: `Le service est fermé aujourd'hui (${todayService.weekdayLabel}).`,
+        },
+        { status: 409 },
+      );
+    }
 
     if (items.length === 0) {
       return NextResponse.json(
@@ -65,10 +68,15 @@ export async function POST(request: Request) {
       );
     }
 
-    const uniquePizzaIds = [...new Set(items.map((item) => item.pizzaId))];
-    const pizzas = await getPizzasByIds(uniquePizzaIds);
+    const desiredTime =
+      typeof body.desiredTime === "string" && body.desiredTime.trim() !== ""
+        ? body.desiredTime
+        : todayService.opensAt;
 
-    if (pizzas.length !== uniquePizzaIds.length) {
+    const pizzaIds = [...new Set(items.map((item) => item.pizzaId))];
+    const pizzas = await getPizzasByIds(pizzaIds);
+
+    if (pizzas.length !== pizzaIds.length) {
       return NextResponse.json(
         { error: "Une pizza demandée n'existe pas." },
         { status: 400 },
@@ -88,15 +96,22 @@ export async function POST(request: Request) {
     }, 0);
 
     const orders = await getTodayOccupancy();
+
     const slots = suggestSlots({
       desiredTime,
       totalMinutes,
       orders,
+      serviceOpeningTime: todayService.opensAt,
+      serviceClosingTime: todayService.closesAt,
     });
 
     const response: QuoteResponse = {
       totalMinutes,
       slots,
+      serviceOpeningTime: todayService.opensAt,
+      serviceClosingTime: todayService.closesAt,
+      weekdayLabel: todayService.weekdayLabel,
+      locationName: todayService.location?.name ?? undefined,
     };
 
     return NextResponse.json(response);

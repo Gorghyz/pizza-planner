@@ -1,6 +1,15 @@
 import Link from "next/link";
+import PublicOpeningInfo from "@/components/public-opening-info";
+import { getPublicLocationsWithHours, getTodayServiceSettings } from "@/lib/data";
 
-export default function PublicHomePage() {
+export const dynamic = "force-dynamic";
+
+export default async function PublicHomePage() {
+  const [locations, todayService] = await Promise.all([
+    getPublicLocationsWithHours(),
+    getTodayServiceSettings(),
+  ]);
+
   return (
     <main className="page public-page">
       <section className="hero-panel">
@@ -21,8 +30,8 @@ export default function PublicHomePage() {
         <div className="card feature-card">
           <h2>Commande en ligne</h2>
           <p>
-            La fonction de commande en ligne est à venir. Pour le moment, la
-            prise de commande se fait par téléphone.
+            La fonction de commande en ligne est en cours de mise en place. Pour
+            le moment, la commande reste confirmée manuellement.
           </p>
         </div>
       </section>
@@ -55,6 +64,8 @@ export default function PublicHomePage() {
           </p>
         </Link>
       </section>
+
+      <PublicOpeningInfo locations={locations} todayService={todayService} />
     </main>
   );
 }

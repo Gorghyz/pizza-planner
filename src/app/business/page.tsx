@@ -6,8 +6,8 @@ export default function BusinessHomePage() {
       <header className="page-header">
         <h1>Espace business</h1>
         <p>
-          Accès protégé pour la prise de commande, la cuisine, les demandes
-          clients et l&apos;administration de la carte.
+          Accès pour la prise de commande, la cuisine, les demandes clients,
+          l&apos;administration de la carte et les réglages business.
         </p>
       </header>
 
@@ -40,6 +40,14 @@ export default function BusinessHomePage() {
           <p>
             Créer, éditer, activer ou désactiver les pizzas, avec prix,
             saisonnalité, photo et allergènes.
+          </p>
+        </Link>
+
+        <Link href="/business/admin" className="business-card">
+          <h2>Réglages business</h2>
+          <p>
+            Gérer les lieux d&apos;ouverture, les jours, les horaires et les
+            informations affichées côté client.
           </p>
         </Link>
       </div>

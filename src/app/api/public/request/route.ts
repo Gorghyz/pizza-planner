@@ -3,8 +3,8 @@ import {
   createCustomerRequest,
   getPizzasByIds,
   getTodayOccupancy,
+  getTodayServiceSettings,
 } from "@/lib/data";
-import { SERVICE_OPENING_TIME } from "@/lib/config";
 import { suggestSlots } from "@/lib/scheduler";
 import type { CustomerRequestItem, DraftItem } from "@/lib/types";
 
@@ -68,14 +68,26 @@ export async function POST(request: Request) {
       typeof body.customerPhone === "string"
         ? normalizePhone(body.customerPhone)
         : "";
+    const notes = typeof body.notes === "string" ? body.notes.trim() : "";
+    const selectedSlot =
+      typeof body.selectedSlot === "string" ? body.selectedSlot.trim() : "";
+    const items = normalizeItems(body.items);
+
+    const todayService = await getTodayServiceSettings();
+
+    if (!todayService.isOpen) {
+      return NextResponse.json(
+        {
+          error: `Le service est fermé aujourd'hui (${todayService.weekdayLabel}).`,
+        },
+        { status: 409 },
+      );
+    }
+
     const desiredTime =
       typeof body.desiredTime === "string" && body.desiredTime.trim() !== ""
         ? body.desiredTime
-        : SERVICE_OPENING_TIME;
-    const selectedSlot =
-      typeof body.selectedSlot === "string" ? body.selectedSlot.trim() : "";
-    const notes = typeof body.notes === "string" ? body.notes.trim() : "";
-    const items = normalizeItems(body.items);
+        : todayService.opensAt;
 
     if (!customerName) {
       return NextResponse.json(
@@ -86,7 +98,9 @@ export async function POST(request: Request) {
 
     if (!customerPhone || customerPhone.replace(/\D/g, "").length < 10) {
       return NextResponse.json(
-        { error: "Le téléphone est obligatoire pour une demande depuis ordinateur." },
+        {
+          error: "Le téléphone est obligatoire pour une demande depuis ordinateur.",
+        },
         { status: 400 },
       );
     }
@@ -128,10 +142,13 @@ export async function POST(request: Request) {
     }, 0);
 
     const orders = await getTodayOccupancy();
+
     const slots = suggestSlots({
       desiredTime,
       totalMinutes,
       orders,
+      serviceOpeningTime: todayService.opensAt,
+      serviceClosingTime: todayService.closesAt,
     });
 
     if (!slots.includes(selectedSlot)) {

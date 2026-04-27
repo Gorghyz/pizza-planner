@@ -43,6 +43,10 @@ export type DraftItem = {
 export type QuoteResponse = {
   totalMinutes: number;
   slots: string[];
+  serviceOpeningTime?: string;
+  serviceClosingTime?: string;
+  weekdayLabel?: string;
+  locationName?: string;
 };
 
 export type CustomerRequestItem = {
@@ -66,4 +70,38 @@ export type CustomerRequest = {
   source: CustomerRequestSource;
   status: CustomerRequestStatus;
   createdAt: string;
+};
+
+export type BusinessLocation = {
+  id: number;
+  name: string;
+  address: string;
+  city: string;
+  notes: string;
+  isActive: boolean;
+  isDefault: boolean;
+  displayOrder: number;
+};
+
+export type OpeningHour = {
+  id: number;
+  locationId: number;
+  isoWeekday: number;
+  isOpen: boolean;
+  opensAt: string | null;
+  closesAt: string | null;
+};
+
+export type LocationWithHours = BusinessLocation & {
+  hours: OpeningHour[];
+};
+
+export type TodayServiceSettings = {
+  location: BusinessLocation | null;
+  isoWeekday: number;
+  weekdayLabel: string;
+  isOpen: boolean;
+  opensAt: string;
+  closesAt: string;
+  openingRule: OpeningHour | null;
 };

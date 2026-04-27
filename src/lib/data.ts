@@ -1,13 +1,27 @@
 import { pool, query } from "@/lib/db";
+import {
+  buildTodayServiceSettings,
+  createDefaultWeekHours,
+  sortOpeningHours,
+  WEEKDAYS,
+} from "@/lib/business-settings";
+import {
+  DEFAULT_SERVICE_CLOSING_TIME,
+  DEFAULT_SERVICE_OPENING_TIME,
+} from "@/lib/config";
 import type {
+  BusinessLocation,
   CustomerRequest,
   CustomerRequestItem,
   CustomerRequestStatus,
   DraftItem,
+  LocationWithHours,
   OccupancyOrder,
+  OpeningHour,
   OrderStatus,
   Pizza,
   TodayOrder,
+  TodayServiceSettings,
 } from "@/lib/types";
 
 const pizzaSelectFields = `
@@ -40,6 +54,26 @@ const customerRequestSelectFields = `
   TO_CHAR(created_at, 'YYYY-MM-DD HH24:MI') AS "createdAt"
 `;
 
+const businessLocationSelectFields = `
+  id,
+  name,
+  address,
+  city,
+  notes,
+  is_active AS "isActive",
+  is_default AS "isDefault",
+  display_order AS "displayOrder"
+`;
+
+const openingHourSelectFields = `
+  id,
+  location_id AS "locationId",
+  iso_weekday AS "isoWeekday",
+  is_open AS "isOpen",
+  TO_CHAR(opens_at, 'HH24:MI') AS "opensAt",
+  TO_CHAR(closes_at, 'HH24:MI') AS "closesAt"
+`;
+
 export type CustomerRequestForConversion = {
   id: number;
   customerName: string;
@@ -55,6 +89,101 @@ export type CustomerRequestForConversion = {
   status: CustomerRequestStatus;
   itemsJson: CustomerRequestItem[];
 };
+
+type CreateOrderInput = {
+  customerName: string;
+  desiredTime: string;
+  promisedTime: string;
+  notes: string;
+  totalMinutes: number;
+  items: DraftItemWithMinutes[];
+};
+
+type DraftItemWithMinutes = DraftItem & {
+  unitMinutes: number;
+};
+
+type PizzaWriteInput = {
+  name: string;
+  prepMinutes: number;
+  ingredients: string;
+  description: string;
+  allergens: string;
+  active: boolean;
+  photoPath: string | null;
+  priceCents: number;
+  seasonality: string;
+};
+
+type CreateCustomerRequestInput = {
+  customerName: string;
+  customerPhone: string;
+  desiredTime: string;
+  selectedSlot: string;
+  notes: string;
+  itemSummary: string;
+  itemsJson: CustomerRequestItem[];
+  totalPizzas: number;
+  totalPriceCents: number;
+  totalMinutes: number;
+  source: "desktop" | "mobile";
+};
+
+type BusinessLocationWriteInput = {
+  name: string;
+  address: string;
+  city: string;
+  notes: string;
+  isActive: boolean;
+  isDefault: boolean;
+};
+
+type OpeningHourWriteInput = {
+  isoWeekday: number;
+  isOpen: boolean;
+  opensAt: string | null;
+  closesAt: string | null;
+};
+
+function sortLocations(locations: LocationWithHours[]): LocationWithHours[] {
+  return [...locations].sort((a, b) => {
+    if (a.isDefault !== b.isDefault) {
+      return a.isDefault ? -1 : 1;
+    }
+
+    if (a.isActive !== b.isActive) {
+      return a.isActive ? -1 : 1;
+    }
+
+    if (a.displayOrder !== b.displayOrder) {
+      return a.displayOrder - b.displayOrder;
+    }
+
+    return a.name.localeCompare(b.name, "fr");
+  });
+}
+
+function attachHoursToLocations(
+  locations: BusinessLocation[],
+  hours: OpeningHour[],
+): LocationWithHours[] {
+  const hoursByLocationId = new Map<number, OpeningHour[]>();
+
+  for (const hour of hours) {
+    const current = hoursByLocationId.get(hour.locationId) ?? [];
+    current.push(hour);
+    hoursByLocationId.set(hour.locationId, current);
+  }
+
+  return sortLocations(
+    locations.map((location) => ({
+      ...location,
+      hours: sortOpeningHours(
+        hoursByLocationId.get(location.id) ?? createDefaultWeekHours(location.id),
+      ),
+    })),
+  );
+}
 
 export async function getActivePizzas(): Promise<Pizza[]> {
   const result = await query<Pizza>(`
@@ -193,44 +322,73 @@ export async function getCustomerRequestByIdForConversion(
   return result.rows[0] ?? null;
 }
 
-type CreateOrderInput = {
-  customerName: string;
-  desiredTime: string;
-  promisedTime: string;
-  notes: string;
-  totalMinutes: number;
-  items: DraftItemWithMinutes[];
-};
+export async function getBusinessLocations(): Promise<BusinessLocation[]> {
+  const result = await query<BusinessLocation>(`
+    SELECT
+      ${businessLocationSelectFields}
+    FROM business_locations
+    ORDER BY is_default DESC, is_active DESC, display_order, name;
+  `);
 
-type DraftItemWithMinutes = DraftItem & {
-  unitMinutes: number;
-};
+  return result.rows;
+}
 
-type PizzaWriteInput = {
-  name: string;
-  prepMinutes: number;
-  ingredients: string;
-  description: string;
-  allergens: string;
-  active: boolean;
-  photoPath: string | null;
-  priceCents: number;
-  seasonality: string;
-};
+export async function getOpeningHoursForLocation(
+  locationId: number,
+): Promise<OpeningHour[]> {
+  const result = await query<OpeningHour>(
+    `
+      SELECT
+        ${openingHourSelectFields}
+      FROM business_opening_hours
+      WHERE location_id = $1
+      ORDER BY iso_weekday;
+    `,
+    [locationId],
+  );
 
-type CreateCustomerRequestInput = {
-  customerName: string;
-  customerPhone: string;
-  desiredTime: string;
-  selectedSlot: string;
-  notes: string;
-  itemSummary: string;
-  itemsJson: CustomerRequestItem[];
-  totalPizzas: number;
-  totalPriceCents: number;
-  totalMinutes: number;
-  source: "desktop" | "mobile";
-};
+  return sortOpeningHours(result.rows);
+}
+
+export async function getBusinessLocationsWithHours(): Promise<LocationWithHours[]> {
+  const [locations, hours] = await Promise.all([
+    getBusinessLocations(),
+    query<OpeningHour>(`
+      SELECT
+        ${openingHourSelectFields}
+      FROM business_opening_hours
+      ORDER BY location_id, iso_weekday;
+    `),
+  ]);
+
+  return attachHoursToLocations(locations, hours.rows);
+}
+
+export async function getPublicLocationsWithHours(): Promise<LocationWithHours[]> {
+  const [locations, hours] = await Promise.all([
+    query<BusinessLocation>(`
+      SELECT
+        ${businessLocationSelectFields}
+      FROM business_locations
+      WHERE is_active = TRUE
+      ORDER BY is_default DESC, display_order, name;
+    `),
+    query<OpeningHour>(`
+      SELECT
+        ${openingHourSelectFields}
+      FROM business_opening_hours
+      ORDER BY location_id, iso_weekday;
+    `),
+  ]);
+
+  return attachHoursToLocations(locations.rows, hours.rows);
+}
+
+export async function getTodayServiceSettings(): Promise<TodayServiceSettings> {
+  const locations = await getBusinessLocationsWithHours();
+
+  return buildTodayServiceSettings(locations);
+}
 
 export async function createPizza(input: PizzaWriteInput): Promise<Pizza> {
   const result = await query<Pizza>(
@@ -333,6 +491,209 @@ export async function togglePizzaActive(pizzaId: number): Promise<Pizza | null> 
   );
 
   return result.rows[0] ?? null;
+}
+
+export async function createBusinessLocation(
+  input: BusinessLocationWriteInput,
+): Promise<BusinessLocation> {
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const result = await client.query<BusinessLocation>(
+      `
+        WITH next_order AS (
+          SELECT COALESCE(MAX(display_order), 0) + 10 AS value
+          FROM business_locations
+        )
+        INSERT INTO business_locations (
+          name,
+          address,
+          city,
+          notes,
+          is_active,
+          is_default,
+          display_order
+        )
+        SELECT
+          $1,
+          $2,
+          $3,
+          $4,
+          $5,
+          $6,
+          next_order.value
+        FROM next_order
+        RETURNING
+          ${businessLocationSelectFields};
+      `,
+      [
+        input.name,
+        input.address,
+        input.city,
+        input.notes,
+        input.isActive,
+        input.isDefault,
+      ],
+    );
+
+    const location = result.rows[0];
+
+    if (input.isDefault) {
+      await client.query(
+        `
+          UPDATE business_locations
+          SET is_default = FALSE
+          WHERE id <> $1;
+        `,
+        [location.id],
+      );
+    }
+
+    for (const day of WEEKDAYS) {
+      await client.query(
+        `
+          INSERT INTO business_opening_hours (
+            location_id,
+            iso_weekday,
+            is_open,
+            opens_at,
+            closes_at
+          )
+          VALUES ($1, $2, TRUE, $3::time, $4::time)
+          ON CONFLICT (location_id, iso_weekday) DO NOTHING;
+        `,
+        [
+          location.id,
+          day.value,
+          DEFAULT_SERVICE_OPENING_TIME,
+          DEFAULT_SERVICE_CLOSING_TIME,
+        ],
+      );
+    }
+
+    await client.query("COMMIT");
+
+    return {
+      ...location,
+      isDefault: input.isDefault,
+    };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function updateBusinessLocation(
+  locationId: number,
+  input: BusinessLocationWriteInput,
+): Promise<BusinessLocation | null> {
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    if (input.isDefault) {
+      await client.query(
+        `
+          UPDATE business_locations
+          SET is_default = FALSE
+          WHERE id <> $1;
+        `,
+        [locationId],
+      );
+    }
+
+    const result = await client.query<BusinessLocation>(
+      `
+        UPDATE business_locations
+        SET
+          name = $2,
+          address = $3,
+          city = $4,
+          notes = $5,
+          is_active = $6,
+          is_default = $7
+        WHERE id = $1
+        RETURNING
+          ${businessLocationSelectFields};
+      `,
+      [
+        locationId,
+        input.name,
+        input.address,
+        input.city,
+        input.notes,
+        input.isActive,
+        input.isDefault,
+      ],
+    );
+
+    await client.query("COMMIT");
+
+    return result.rows[0] ?? null;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function saveOpeningHours(
+  locationId: number,
+  hours: OpeningHourWriteInput[],
+): Promise<OpeningHour[]> {
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    for (const hour of hours) {
+      await client.query(
+        `
+          INSERT INTO business_opening_hours (
+            location_id,
+            iso_weekday,
+            is_open,
+            opens_at,
+            closes_at
+          )
+          VALUES (
+            $1,
+            $2,
+            $3,
+            CASE WHEN $3 THEN $4::time ELSE NULL END,
+            CASE WHEN $3 THEN $5::time ELSE NULL END
+          )
+          ON CONFLICT (location_id, iso_weekday)
+          DO UPDATE SET
+            is_open = EXCLUDED.is_open,
+            opens_at = EXCLUDED.opens_at,
+            closes_at = EXCLUDED.closes_at;
+        `,
+        [
+          locationId,
+          hour.isoWeekday,
+          hour.isOpen,
+          hour.opensAt,
+          hour.closesAt,
+        ],
+      );
+    }
+
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+
+  return getOpeningHoursForLocation(locationId);
 }
 
 export async function createCustomerRequest(

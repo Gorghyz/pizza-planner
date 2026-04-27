@@ -1,17 +1,14 @@
 import Link from "next/link";
 import OrderScreen from "@/components/order-screen";
-import {
-  SERVICE_CLOSING_TIME,
-  SERVICE_OPENING_TIME,
-} from "@/lib/config";
-import { getActivePizzas, getTodayOrders } from "@/lib/data";
+import { getActivePizzas, getTodayOrders, getTodayServiceSettings } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
 
 export default async function BusinessOrderPage() {
-  const [pizzas, orders] = await Promise.all([
+  const [pizzas, orders, todayService] = await Promise.all([
     getActivePizzas(),
     getTodayOrders(),
+    getTodayServiceSettings(),
   ]);
 
   return (
@@ -30,6 +27,9 @@ export default async function BusinessOrderPage() {
           <Link href="/business/cuisine" className="link-button">
             Vue cuisine
           </Link>
+          <Link href="/business/admin" className="link-button secondary-link">
+            Réglages business
+          </Link>
           <Link href="/admin/pizzas" className="link-button secondary-link">
             Admin carte
           </Link>
@@ -37,15 +37,20 @@ export default async function BusinessOrderPage() {
       </header>
 
       <section className="card" style={{ marginBottom: 20 }}>
-        <h2>Règles actuelles</h2>
+        <h2>Service du jour</h2>
         <ul className="rule-list">
-          <li>Service du soir : {SERVICE_OPENING_TIME} → {SERVICE_CLOSING_TIME}</li>
+          <li>
+            Lieu : {todayService.location?.name ?? "Aucun lieu configuré"}
+          </li>
+          <li>Jour : {todayService.weekdayLabel}</li>
+          <li>
+            Horaires :{" "}
+            {todayService.isOpen
+              ? `${todayService.opensAt} → ${todayService.closesAt}`
+              : "Fermé aujourd'hui"}
+          </li>
           <li>Créneaux proposés toutes les 5 minutes</li>
           <li>Temps de fabrication variable selon la pizza</li>
-          <li>
-            Modèle actuel : une seule chaîne de production, sans décalage
-            automatique des commandes déjà prises
-          </li>
         </ul>
       </section>
 

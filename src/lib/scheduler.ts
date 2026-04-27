@@ -1,116 +1,103 @@
 import {
-  SERVICE_CLOSING_TIME,
-  SERVICE_OPENING_TIME,
-  SLOT_STEP_MINUTES,
-  SLOT_SUGGESTION_COUNT,
+  DEFAULT_SERVICE_CLOSING_TIME,
+  DEFAULT_SERVICE_OPENING_TIME,
+  DEFAULT_SLOT_STEP_MINUTES,
 } from "@/lib/config";
 import type { OccupancyOrder } from "@/lib/types";
 
-export function timeToMinutes(time: string): number {
-  const parts = time.split(":");
-
-  if (parts.length !== 2) {
-    throw new Error(`Heure invalide : ${time}`);
-  }
-
-  const hours = Number(parts[0]);
-  const minutes = Number(parts[1]);
-
-  if (
-    !Number.isInteger(hours) ||
-    !Number.isInteger(minutes) ||
-    hours < 0 ||
-    hours > 23 ||
-    minutes < 0 ||
-    minutes > 59
-  ) {
-    throw new Error(`Heure invalide : ${time}`);
-  }
-
-  return hours * 60 + minutes;
-}
-
-export function minutesToTime(totalMinutes: number): string {
-  const hours = Math.floor(totalMinutes / 60)
-    .toString()
-    .padStart(2, "0");
-  const minutes = (totalMinutes % 60).toString().padStart(2, "0");
-
-  return `${hours}:${minutes}`;
-}
-
-export function isValidTimeString(value: string): boolean {
-  try {
-    timeToMinutes(value);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function roundUp(value: number, step: number): number {
-  return Math.ceil(value / step) * step;
-}
-
-export function suggestSlots(params: {
+type SuggestSlotsInput = {
   desiredTime: string;
   totalMinutes: number;
   orders: OccupancyOrder[];
-}): string[] {
-  const { desiredTime, totalMinutes, orders } = params;
+  serviceOpeningTime?: string;
+  serviceClosingTime?: string;
+  slotStepMinutes?: number;
+  maxSuggestions?: number;
+};
 
-  if (totalMinutes <= 0) {
+function parseTimeToMinutes(value: string): number {
+  const [hours, minutes] = value.split(":").map(Number);
+  return hours * 60 + minutes;
+}
+
+function formatMinutesToTime(value: number): string {
+  const hours = Math.floor(value / 60)
+    .toString()
+    .padStart(2, "0");
+  const minutes = (value % 60).toString().padStart(2, "0");
+  return `${hours}:${minutes}`;
+}
+
+function rangesOverlap(
+  startA: number,
+  endA: number,
+  startB: number,
+  endB: number,
+): boolean {
+  return startA < endB && startB < endA;
+}
+
+export function suggestSlots({
+  desiredTime,
+  totalMinutes,
+  orders,
+  serviceOpeningTime = DEFAULT_SERVICE_OPENING_TIME,
+  serviceClosingTime = DEFAULT_SERVICE_CLOSING_TIME,
+  slotStepMinutes = DEFAULT_SLOT_STEP_MINUTES,
+  maxSuggestions = 8,
+}: SuggestSlotsInput): string[] {
+  const openingMinutes = parseTimeToMinutes(serviceOpeningTime);
+  const closingMinutes = parseTimeToMinutes(serviceClosingTime);
+  const desiredMinutes = parseTimeToMinutes(desiredTime);
+
+  if (totalMinutes <= 0 || openingMinutes >= closingMinutes) {
     return [];
   }
 
-  const opening = timeToMinutes(SERVICE_OPENING_TIME);
-  const closing = timeToMinutes(SERVICE_CLOSING_TIME);
-  const desired = isValidTimeString(desiredTime)
-    ? timeToMinutes(desiredTime)
-    : opening;
-
-  const occupied = orders
-    .map((order) => {
-      const end = timeToMinutes(order.promisedTime);
-      const start = end - order.totalMinutes;
-
-      return {
-        start,
-        end,
-      };
-    })
-    .sort((a, b) => a.start - b.start);
-
-  const firstCandidate = roundUp(
-    Math.max(desired, opening + totalMinutes),
-    SLOT_STEP_MINUTES,
-  );
-
-  const slots: string[] = [];
+  const candidates: number[] = [];
 
   for (
-    let candidateEnd = firstCandidate;
-    candidateEnd <= closing;
-    candidateEnd += SLOT_STEP_MINUTES
+    let promisedMinutes = openingMinutes;
+    promisedMinutes <= closingMinutes;
+    promisedMinutes += slotStepMinutes
   ) {
-    const candidateStart = candidateEnd - totalMinutes;
+    const startMinutes = promisedMinutes - totalMinutes;
 
-    if (candidateStart < opening) {
+    if (startMinutes < openingMinutes) {
       continue;
     }
 
-    const overlaps = occupied.some((interval) => {
-      return candidateStart < interval.end && candidateEnd > interval.start;
-    });
-
-    if (!overlaps) {
-      slots.push(minutesToTime(candidateEnd));
+    if (promisedMinutes > closingMinutes) {
+      continue;
     }
 
-    if (slots.length >= SLOT_SUGGESTION_COUNT) {
-      break;
+    const hasOverlap = orders.some((order) => {
+      const orderPromised = parseTimeToMinutes(order.promisedTime);
+      const orderStart = orderPromised - order.totalMinutes;
+
+      return rangesOverlap(
+        startMinutes,
+        promisedMinutes,
+        orderStart,
+        orderPromised,
+      );
+    });
+
+    if (!hasOverlap) {
+      candidates.push(promisedMinutes);
     }
   }
 
-  return slots;
+  candidates.sort((a, b) => {
+    const distanceA = Math.abs(a - desiredMinutes);
+    const distanceB = Math.abs(b - desiredMinutes);
+
+    if (distanceA !== distanceB) {
+      return distanceA - distanceB;
+    }
+
+    return a - b;
+  });
+
+  return candidates.slice(0, maxSuggestions).map(formatMinutesToTime);
 }

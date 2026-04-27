@@ -1,11 +1,16 @@
 import Link from "next/link";
 import PublicCarteBuilder from "@/components/public-carte-builder";
-import { getActivePizzas } from "@/lib/data";
+import PublicOpeningInfo from "@/components/public-opening-info";
+import { getActivePizzas, getPublicLocationsWithHours, getTodayServiceSettings } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
 
 export default async function CartePage() {
-  const pizzas = await getActivePizzas();
+  const [pizzas, locations, todayService] = await Promise.all([
+    getActivePizzas(),
+    getPublicLocationsWithHours(),
+    getTodayServiceSettings(),
+  ]);
 
   return (
     <main className="page public-page">
@@ -13,9 +18,8 @@ export default async function CartePage() {
         <h1>La carte des pizzas</h1>
         <p>
           Choisissez vos pizzas, indiquez l&apos;heure souhaitée, puis
-          sélectionnez un créneau disponible. Sur smartphone, vous pouvez
-          préparer un SMS. Sur ordinateur, vous pouvez envoyer une demande
-          enregistrée que nous traiterons manuellement.
+          sélectionnez un créneau disponible. Les horaires et lieux affichés
+          ci-dessous sont ceux actuellement publiés.
         </p>
 
         <div className="page-actions">
@@ -25,7 +29,10 @@ export default async function CartePage() {
         </div>
       </header>
 
-      <PublicCarteBuilder pizzas={pizzas} />
+      <PublicOpeningInfo locations={locations} todayService={todayService} />
+      <div style={{ marginTop: 24 }}>
+        <PublicCarteBuilder pizzas={pizzas} />
+      </div>
     </main>
   );
 }
