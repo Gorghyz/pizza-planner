@@ -1,4 +1,5 @@
 import Link from "next/link";
+import BusinessLogoutButton from "@/components/business-logout-button";
 import OrderScreen from "@/components/order-screen";
 import { getActivePizzas, getTodayOrders, getTodayServiceSettings } from "@/lib/data";
 
@@ -33,6 +34,7 @@ export default async function BusinessOrderPage() {
           <Link href="/admin/pizzas" className="link-button secondary-link">
             Admin carte
           </Link>
+          <BusinessLogoutButton />
         </div>
       </header>
 

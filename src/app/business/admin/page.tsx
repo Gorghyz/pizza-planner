@@ -1,4 +1,5 @@
 import Link from "next/link";
+import BusinessLogoutButton from "@/components/business-logout-button";
 import BusinessSettingsAdmin from "@/components/business-settings-admin";
 import { getBusinessLocationsWithHours, getTodayServiceSettings } from "@/lib/data";
 
@@ -29,6 +30,7 @@ export default async function BusinessAdminPage() {
           <Link href="/business/cuisine" className="link-button secondary-link">
             Vue cuisine
           </Link>
+          <BusinessLogoutButton />
         </div>
       </header>
 

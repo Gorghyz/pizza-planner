@@ -66,6 +66,19 @@ export default async function PublicHomePage() {
       </section>
 
       <PublicOpeningInfo locations={locations} todayService={todayService} />
+
+      <div style={{ marginTop: 36, textAlign: "center" }}>
+        <Link
+          href="/business/login"
+          style={{
+            fontSize: "0.82rem",
+            color: "#777",
+            textDecoration: "none",
+          }}
+        >
+          Accès pro
+        </Link>
+      </div>
     </main>
   );
 }

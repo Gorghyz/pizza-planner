@@ -33,6 +33,19 @@ export default async function CartePage() {
       <div style={{ marginTop: 24 }}>
         <PublicCarteBuilder pizzas={pizzas} />
       </div>
+
+      <div style={{ marginTop: 36, textAlign: "center" }}>
+        <Link
+          href="/business/login"
+          style={{
+            fontSize: "0.82rem",
+            color: "#777",
+            textDecoration: "none",
+          }}
+        >
+          Accès pro
+        </Link>
+      </div>
     </main>
   );
 }

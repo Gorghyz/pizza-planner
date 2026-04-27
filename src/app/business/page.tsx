@@ -1,4 +1,5 @@
 import Link from "next/link";
+import BusinessLogoutButton from "@/components/business-logout-button";
 
 export default function BusinessHomePage() {
   return (
@@ -6,9 +7,13 @@ export default function BusinessHomePage() {
       <header className="page-header">
         <h1>Espace business</h1>
         <p>
-          Accès pour la prise de commande, la cuisine, les demandes clients,
-          l&apos;administration de la carte et les réglages business.
+          Accès protégé pour la prise de commande, la cuisine, les demandes
+          clients, l&apos;administration de la carte et les réglages business.
         </p>
+
+        <div className="page-actions">
+          <BusinessLogoutButton />
+        </div>
       </header>
 
       <div className="business-grid">
