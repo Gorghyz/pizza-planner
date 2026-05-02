@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
+
 import "./globals.css";
+import "./public.css";
 
 export const metadata: Metadata = {
-  title: "Planificateur pizzas",
-  description: "Version d'essai locale pour prise de commande pizzeria",
+  title: "À table tonton !",
+  description:
+    "Pizzas artisanales, de saison et locales. Préparez votre demande simplement par SMS ou navigateur.",
 };
 
 export default function RootLayout({

@@ -1,7 +1,13 @@
 import Link from "next/link";
+
 import PublicCarteBuilder from "@/components/public-carte-builder";
 import PublicOpeningInfo from "@/components/public-opening-info";
-import { getActivePizzas, getPublicLocationsWithHours, getTodayServiceSettings } from "@/lib/data";
+import PublicSiteShell from "@/components/public-site-shell";
+import {
+  getActivePizzas,
+  getPublicLocationsWithHours,
+  getTodayServiceSettings,
+} from "@/lib/data";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +19,7 @@ export default async function CartePage() {
   ]);
 
   return (
-    <main className="page public-page">
+    <PublicSiteShell currentPage="carte">
       <header className="page-header">
         <h1>La carte des pizzas</h1>
         <p>
@@ -30,22 +36,10 @@ export default async function CartePage() {
       </header>
 
       <PublicOpeningInfo locations={locations} todayService={todayService} />
+
       <div style={{ marginTop: 24 }}>
         <PublicCarteBuilder pizzas={pizzas} />
       </div>
-
-      <div style={{ marginTop: 36, textAlign: "center" }}>
-        <Link
-          href="/business/login"
-          style={{
-            fontSize: "0.82rem",
-            color: "#777",
-            textDecoration: "none",
-          }}
-        >
-          Accès pro
-        </Link>
-      </div>
-    </main>
+    </PublicSiteShell>
   );
 }
