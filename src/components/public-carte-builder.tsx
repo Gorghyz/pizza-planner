@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+
 import type { DraftItem, Pizza, QuoteResponse } from "@/lib/types";
 
 type PublicCarteBuilderProps = {
@@ -16,6 +17,11 @@ type ApiErrorResponse = {
 type SaveRequestResponse = {
   ok?: boolean;
   error?: string;
+};
+
+type PizzaGroup = {
+  title: string;
+  pizzas: Pizza[];
 };
 
 const ORDER_PHONE_NUMBER = "0679958962";
@@ -45,6 +51,36 @@ function normalizePhoneForSmsLink(phone: string): string {
   return digits;
 }
 
+function isValidFrenchPhone(value: string): boolean {
+  return value.replace(/\D/g, "").length >= 10;
+}
+
+function parseSlotMinutes(slot: string): number {
+  const normalized = slot.trim().toLowerCase().replace("h", ":");
+  const match = normalized.match(/(\d{1,2})(?::(\d{2}))?/);
+
+  if (!match) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+
+  const hours = Number(match[1]);
+  const minutes = Number(match[2] ?? "0");
+
+  return hours * 60 + minutes;
+}
+
+function sortSlotsChronologically(slots: string[]): string[] {
+  return [...slots].sort((left, right) => {
+    const diff = parseSlotMinutes(left) - parseSlotMinutes(right);
+
+    if (diff !== 0) {
+      return diff;
+    }
+
+    return left.localeCompare(right, "fr");
+  });
+}
+
 async function readJsonResponse<T>(response: Response): Promise<T> {
   const raw = await response.text();
 
@@ -55,24 +91,54 @@ async function readJsonResponse<T>(response: Response): Promise<T> {
   return JSON.parse(raw) as T;
 }
 
-export default function PublicCarteBuilder({
-  pizzas,
-}: PublicCarteBuilderProps) {
-  const [deviceMode, setDeviceMode] = useState<DeviceMode>("unknown");
+function groupPizzas(pizzas: Pizza[]): PizzaGroup[] {
+  const seasonPizzas = pizzas.filter((pizza) => {
+    const seasonality = pizza.seasonality.toLowerCase();
+    return seasonality.includes("saison") || seasonality.includes("season");
+  });
 
+  const seasonIds = new Set(seasonPizzas.map((pizza) => pizza.id));
+  const classicPizzas = pizzas.filter((pizza) => !seasonIds.has(pizza.id));
+
+  const groups: PizzaGroup[] = [];
+
+  if (classicPizzas.length > 0) {
+    groups.push({
+      title: "Les classiques",
+      pizzas: classicPizzas,
+    });
+  }
+
+  if (seasonPizzas.length > 0) {
+    groups.push({
+      title: "Les saisons",
+      pizzas: seasonPizzas,
+    });
+  }
+
+  if (groups.length === 0 && pizzas.length > 0) {
+    groups.push({
+      title: "Nos pizzas",
+      pizzas,
+    });
+  }
+
+  return groups;
+}
+
+export default function PublicCarteBuilder({ pizzas }: PublicCarteBuilderProps) {
+  const [deviceMode, setDeviceMode] = useState<DeviceMode>("unknown");
   const [quantities, setQuantities] = useState<Record<number, number>>({});
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
+  const [phoneFieldError, setPhoneFieldError] = useState("");
   const [desiredTime, setDesiredTime] = useState("");
   const [notes, setNotes] = useState("");
-
   const [quote, setQuote] = useState<QuoteResponse | null>(null);
   const [selectedSlot, setSelectedSlot] = useState("");
-
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [copyMessage, setCopyMessage] = useState("");
-
   const [isQuoting, setIsQuoting] = useState(false);
   const [isSendingDesktopRequest, setIsSendingDesktopRequest] = useState(false);
 
@@ -84,13 +150,14 @@ export default function PublicCarteBuilder({
     }
 
     updateMode();
-
     mediaQuery.addEventListener("change", updateMode);
 
     return () => {
       mediaQuery.removeEventListener("change", updateMode);
     };
   }, []);
+
+  const groups = useMemo(() => groupPizzas(pizzas), [pizzas]);
 
   const items = useMemo<DraftItem[]>(() => {
     return pizzas
@@ -110,9 +177,13 @@ export default function PublicCarteBuilder({
       .filter((item) => item.quantity > 0);
   }, [pizzas, quantities]);
 
-  const totalPizzas = useMemo(() => {
-    return selectedItems.reduce((sum, item) => sum + item.quantity, 0);
-  }, [selectedItems]);
+  const sortedQuoteSlots = useMemo(() => {
+    if (!quote) {
+      return [];
+    }
+
+    return sortSlotsChronologically(quote.slots);
+  }, [quote]);
 
   const totalPriceCents = useMemo(() => {
     return selectedItems.reduce(
@@ -124,7 +195,7 @@ export default function PublicCarteBuilder({
   const smsBody = useMemo(() => {
     const lines: string[] = [];
 
-    lines.push("Bonjour, je souhaite commander :");
+    lines.push("Bonjour, je souhaite préparer une demande :");
 
     if (selectedItems.length === 0) {
       lines.push("- aucune pizza sélectionnée pour le moment");
@@ -135,7 +206,7 @@ export default function PublicCarteBuilder({
     }
 
     lines.push("");
-    lines.push(`Nom / prénom : ${customerName.trim() || "à préciser"}`);
+    lines.push(`Nom ou prénom : ${customerName.trim() || "à préciser"}`);
     lines.push(`Créneau souhaité : ${selectedSlot || "à préciser"}`);
 
     if (desiredTime.trim()) {
@@ -152,7 +223,6 @@ export default function PublicCarteBuilder({
   const smsHref = useMemo(() => {
     const target = normalizePhoneForSmsLink(ORDER_PHONE_NUMBER);
     const encodedBody = encodeURIComponent(smsBody);
-
     return `sms:${target}?body=${encodedBody}`;
   }, [smsBody]);
 
@@ -177,6 +247,27 @@ export default function PublicCarteBuilder({
     clearQuote();
   }
 
+  function validateDesktopPhoneBeforeQuote(): boolean {
+    if (deviceMode !== "desktop") {
+      return true;
+    }
+
+    if (!customerPhone.trim()) {
+      setPhoneFieldError(
+        "Le téléphone est obligatoire pour vous confirmer le créneau retenu par SMS.",
+      );
+      return false;
+    }
+
+    if (!isValidFrenchPhone(customerPhone)) {
+      setPhoneFieldError("Indique un numéro de téléphone valide.");
+      return false;
+    }
+
+    setPhoneFieldError("");
+    return true;
+  }
+
   async function handleQuote() {
     clearMessages();
     clearQuote();
@@ -188,6 +279,10 @@ export default function PublicCarteBuilder({
 
     if (!desiredTime) {
       setErrorMessage("Renseigne une heure souhaitée pour obtenir des créneaux.");
+      return;
+    }
+
+    if (!validateDesktopPhoneBeforeQuote()) {
       return;
     }
 
@@ -213,16 +308,13 @@ export default function PublicCarteBuilder({
         throw new Error(data.error || "Erreur de calcul des créneaux.");
       }
 
-      setQuote(data);
+      const sortedSlots = sortSlotsChronologically(data.slots);
 
-      if (data.slots.length > 0) {
-        setSelectedSlot(data.slots[0]);
-      }
+      setQuote(data);
+      setSelectedSlot(sortedSlots[0] ?? "");
     } catch (error) {
       setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Erreur de calcul des créneaux.",
+        error instanceof Error ? error.message : "Erreur de calcul des créneaux.",
       );
     } finally {
       setIsQuoting(false);
@@ -231,7 +323,7 @@ export default function PublicCarteBuilder({
 
   async function handleCopyMessage() {
     if (!selectedSlot) {
-      setErrorMessage("Choisis d'abord un créneau.");
+      setErrorMessage("Choisis d’abord un créneau.");
       return;
     }
 
@@ -259,7 +351,7 @@ export default function PublicCarteBuilder({
     }
 
     if (!selectedSlot) {
-      setErrorMessage("Choisis d'abord un créneau.");
+      setErrorMessage("Choisis d’abord un créneau.");
       return;
     }
 
@@ -280,7 +372,14 @@ export default function PublicCarteBuilder({
     }
 
     if (!customerPhone.trim()) {
-      setErrorMessage("Le téléphone est obligatoire depuis un ordinateur.");
+      setPhoneFieldError(
+        "Le téléphone est obligatoire pour vous confirmer le créneau retenu par SMS.",
+      );
+      return;
+    }
+
+    if (!isValidFrenchPhone(customerPhone)) {
+      setPhoneFieldError("Indique un numéro de téléphone valide.");
       return;
     }
 
@@ -290,10 +389,11 @@ export default function PublicCarteBuilder({
     }
 
     if (!selectedSlot) {
-      setErrorMessage("Choisis d'abord un créneau disponible.");
+      setErrorMessage("Choisis d’abord un créneau disponible.");
       return;
     }
 
+    setPhoneFieldError("");
     setIsSendingDesktopRequest(true);
 
     try {
@@ -315,7 +415,7 @@ export default function PublicCarteBuilder({
       const data = await readJsonResponse<SaveRequestResponse>(response);
 
       if (!response.ok) {
-        throw new Error(data.error || "Impossible d'envoyer la demande.");
+        throw new Error(data.error || "Impossible d’envoyer la demande.");
       }
 
       setCustomerName("");
@@ -324,14 +424,13 @@ export default function PublicCarteBuilder({
       setNotes("");
       setQuantities({});
       clearQuote();
+
       setSuccessMessage(
         "Votre demande a été enregistrée. Nous reviendrons vers vous pour confirmer le créneau.",
       );
     } catch (error) {
       setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Impossible d'envoyer la demande.",
+        error instanceof Error ? error.message : "Impossible d’envoyer la demande.",
       );
     } finally {
       setIsSendingDesktopRequest(false);
@@ -339,101 +438,94 @@ export default function PublicCarteBuilder({
   }
 
   return (
-    <div className="form-stack">
-      <section className="card public-instructions-card">
-        <h2>Comment utiliser cette page</h2>
-        <ol className="helper-list">
-          <li>Parcours la carte et ajuste les quantités avec les boutons + et -.</li>
-          <li>Renseigne ton nom ou prénom et ton heure souhaitée.</li>
-          <li>Clique sur <strong>Voir les créneaux disponibles</strong>.</li>
-          <li>Choisis un créneau parmi ceux proposés.</li>
-          <li>
-            Sur smartphone, prépare ton SMS. Sur ordinateur, envoie ta demande
-            pour qu&apos;elle soit traitée manuellement.
-          </li>
-        </ol>
+    <section className="att-carte-layout">
+      <div className="att-pizza-column">
+        {pizzas.length === 0 ? (
+          <section className="att-ink-card att-empty-menu-card">
+            <p>Aucune pizza active pour le moment.</p>
+          </section>
+        ) : (
+          groups.map((group) => (
+            <section key={group.title} className="att-pizza-group">
+              <h2>{group.title}</h2>
 
-        <p className="small" style={{ marginTop: 10 }}>
-          La commande n&apos;est confirmée qu&apos;après validation manuelle de
-          notre part.
-        </p>
-      </section>
+              <div className="att-pizza-card-grid">
+                {group.pizzas.map((pizza) => {
+                  const quantity = quantities[pizza.id] ?? 0;
+                  const description = pizza.description || pizza.ingredients;
 
-      {pizzas.length === 0 ? (
-        <section className="card">
-          <p className="empty">Aucune pizza active pour le moment.</p>
-        </section>
-      ) : (
-        <div className="public-card-grid">
-          {pizzas.map((pizza) => {
-            const quantity = quantities[pizza.id] ?? 0;
+                  return (
+                    <article key={pizza.id} className="att-pizza-card">
+                      {pizza.photoPath ? (
+                        <img
+                          src={pizza.photoPath}
+                          alt={pizza.name}
+                          className="att-pizza-photo"
+                        />
+                      ) : (
+                        <div className="att-pizza-photo-placeholder" aria-hidden="true" />
+                      )}
 
-            return (
-              <article key={pizza.id} className="card public-pizza-card">
-                {pizza.photoPath ? (
-                  <img
-                    src={pizza.photoPath}
-                    alt={pizza.name}
-                    className="public-pizza-photo"
-                  />
-                ) : null}
+                      <div className="att-pizza-card-body">
+                        <h3>{pizza.name}</h3>
 
-                <div className="public-pizza-header">
-                  <h2>{pizza.name}</h2>
-                  <div className="public-price">
-                    {formatEuros(pizza.priceCents)}
-                  </div>
-                </div>
+                        {description ? (
+                          <p className="att-pizza-description">{description}</p>
+                        ) : null}
 
-                {pizza.description ? (
-                  <p className="multiline-text">{pizza.description}</p>
-                ) : null}
+                        <p className="att-pizza-allergens">
+                          Allergènes : {pizza.allergens || "—"}
+                        </p>
 
-                <div className="catalog-section">
-                  <strong>Ingrédients</strong>
-                  <div className="multiline-text">
-                    {pizza.ingredients || "—"}
-                  </div>
-                </div>
+                        <div className="att-pizza-bottom-row">
+                          <strong className="att-pizza-price">
+                            {formatEuros(pizza.priceCents)}
+                          </strong>
 
-                <div className="catalog-section">
-                  <strong>Allergènes</strong>
-                  <div className="multiline-text">
-                    {pizza.allergens || "—"}
-                  </div>
-                </div>
+                          <div className="att-quantity-control">
+                            <button
+                              type="button"
+                              onClick={() => setQuantity(pizza.id, quantity - 1)}
+                              aria-label={`Retirer une ${pizza.name}`}
+                            >
+                              −
+                            </button>
+                            <span>{quantity}</span>
+                            <button
+                              type="button"
+                              onClick={() => setQuantity(pizza.id, quantity + 1)}
+                              aria-label={`Ajouter une ${pizza.name}`}
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
+          ))
+        )}
+      </div>
 
-                <div className="public-counter-row">
-                  <button
-                    type="button"
-                    className="secondary counter-button"
-                    onClick={() => setQuantity(pizza.id, quantity - 1)}
-                  >
-                    -
-                  </button>
+      <aside className="att-order-panel" aria-label="Préparer ma demande">
+        <div className="att-order-panel-inner">
+          <p className="att-order-intro-note">
+            Vous pouvez naturellement commander vos pizzas par téléphone au
+            06-79-95-89-62, mais en dehors des heures de services, merci de
+            privilégier la prise de contact par le formulaire ci-dessous.
+          </p>
 
-                  <div className="counter-value">{quantity}</div>
+          <h2>Préparer ma demande</h2>
 
-                  <button
-                    type="button"
-                    className="primary counter-button"
-                    onClick={() => setQuantity(pizza.id, quantity + 1)}
-                  >
-                    +
-                  </button>
-                </div>
-              </article>
-            );
-          })}
-        </div>
-      )}
+          <p className="att-field-help">
+            Le paiement s&apos;effectue sur place.
+          </p>
 
-      <section className="card public-order-draft-card">
-        <h2>Préparer ma demande</h2>
-
-        <div className="field-grid field-grid-2">
-          <div className="field">
-            <label htmlFor="customerName">Nom / prénom</label>
+          <div className="att-public-field">
+            <label htmlFor="customerName">Nom ou prénom</label>
             <input
               id="customerName"
               type="text"
@@ -442,12 +534,12 @@ export default function PublicCarteBuilder({
                 setCustomerName(event.target.value);
                 clearMessages();
               }}
-              placeholder="Ex. Martin"
+              placeholder="Votre nom"
             />
           </div>
 
-          <div className="field">
-            <label htmlFor="desiredTime">Heure souhaitée</label>
+          <div className="att-public-field">
+            <label htmlFor="desiredTime">Mon créneau</label>
             <input
               id="desiredTime"
               type="time"
@@ -459,145 +551,235 @@ export default function PublicCarteBuilder({
               }}
             />
           </div>
-        </div>
 
-        {deviceMode === "desktop" ? (
-          <div className="field">
-            <label htmlFor="customerPhone">
-              Téléphone (obligatoire depuis un ordinateur)
-            </label>
-            <input
-              id="customerPhone"
-              type="tel"
-              value={customerPhone}
+          {deviceMode === "desktop" ? (
+            <div className="att-public-field">
+              <label htmlFor="customerPhone">Téléphone</label>
+              <input
+                id="customerPhone"
+                type="tel"
+                value={customerPhone}
+                onChange={(event) => {
+                  setCustomerPhone(event.target.value);
+                  setPhoneFieldError("");
+                  clearMessages();
+                }}
+                placeholder="06 12 34 56 78"
+                aria-invalid={phoneFieldError ? "true" : "false"}
+                aria-describedby="customerPhoneHelp customerPhoneError"
+              />
+
+              <p id="customerPhoneHelp" className="att-field-help">
+                Votre numéro nous sert simplement à vous confirmer par SMS le
+                créneau retenu, et valider la commande.
+              </p>
+
+              {phoneFieldError ? (
+                <p id="customerPhoneError" className="att-field-error">
+                  {phoneFieldError}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
+          <div className="att-public-field">
+            <label htmlFor="notes">Commentaires</label>
+            <textarea
+              id="notes"
+              value={notes}
               onChange={(event) => {
-                setCustomerPhone(event.target.value);
+                setNotes(event.target.value);
                 clearMessages();
               }}
-              placeholder="Ex. 06 12 34 56 78"
+              placeholder="Précisions, demandes spéciales..."
             />
           </div>
-        ) : null}
 
-        <div className="field">
-          <label htmlFor="notes">Commentaire</label>
-          <textarea
-            id="notes"
-            value={notes}
-            onChange={(event) => {
-              setNotes(event.target.value);
-              clearMessages();
-            }}
-            placeholder="Ex. sans oignons, bien cuite, etc."
-          />
-        </div>
-
-        <div className="actions">
           <button
             type="button"
-            className="secondary"
+            className="att-black-button att-full-width"
             onClick={handleQuote}
             disabled={isQuoting || isSendingDesktopRequest}
           >
             {isQuoting ? "Calcul..." : "Voir les créneaux disponibles"}
           </button>
-        </div>
 
-        {quote ? (
-          <div className="info-box">
-            <strong>Créneaux proposés</strong>
-            <div className="small">Charge calculée : {quote.totalMinutes} min</div>
+          {errorMessage ? (
+            <div className="message error att-inline-error">{errorMessage}</div>
+          ) : null}
 
-            {quote.slots.length === 0 ? (
-              <p className="empty">
-                Aucun créneau disponible ce soir avec cette charge.
-              </p>
+          <div className="att-dashed-separator" />
+
+          <section className="att-order-subsection">
+            <h3>Créneaux disponibles</h3>
+
+            {quote ? (
+              sortedQuoteSlots.length === 0 ? (
+                <p className="att-empty">
+                  Aucun créneau disponible ce soir avec cette charge.
+                </p>
+              ) : (
+                <>
+                  <div className="att-slot-grid">
+                    {sortedQuoteSlots.map((slot) => (
+                      <label
+                        key={slot}
+                        className={
+                          selectedSlot === slot
+                            ? "att-slot-pill att-slot-pill-selected"
+                            : "att-slot-pill"
+                        }
+                      >
+                        <input
+                          type="radio"
+                          name="public-slot"
+                          value={slot}
+                          checked={selectedSlot === slot}
+                          onChange={() => setSelectedSlot(slot)}
+                        />
+                        <span>{slot}</span>
+                      </label>
+                    ))}
+                  </div>
+
+                  <p className="att-slot-help">et plus encore...</p>
+                </>
+              )
             ) : (
-              <div className="slot-list" style={{ marginTop: 12 }}>
-                {quote.slots.map((slot) => (
-                  <label key={slot} className="slot-option">
-                    <input
-                      type="radio"
-                      name="public-slot"
-                      value={slot}
-                      checked={selectedSlot === slot}
-                      onChange={() => setSelectedSlot(slot)}
-                    />
-                    <span>{slot}</span>
-                  </label>
+              <p className="att-empty">
+                Sélectionnez vos pizzas et un horaire, puis demandez les créneaux.
+              </p>
+            )}
+          </section>
+
+          <div className="att-dashed-separator" />
+
+          <section className="att-order-subsection">
+            <h3>Résumé de la sélection</h3>
+
+            {selectedItems.length === 0 ? (
+              <p className="att-empty">Aucune pizza sélectionnée.</p>
+            ) : (
+              <div className="att-summary-list">
+                {selectedItems.map((item) => (
+                  <div key={item.pizza.id} className="att-summary-row">
+                    <div>
+                      <strong>{item.pizza.name}</strong>
+                      <span>{formatEuros(item.pizza.priceCents)}</span>
+                    </div>
+
+                    <div className="att-quantity-control att-small-quantity-control">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setQuantity(item.pizza.id, item.quantity - 1)
+                        }
+                        aria-label={`Retirer une ${item.pizza.name}`}
+                      >
+                        −
+                      </button>
+                      <span>{item.quantity}</span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setQuantity(item.pizza.id, item.quantity + 1)
+                        }
+                        aria-label={`Ajouter une ${item.pizza.name}`}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
                 ))}
               </div>
             )}
-          </div>
-        ) : null}
 
-        <div className="info-box">
-          <strong>Résumé de la sélection</strong>
-          {selectedItems.length === 0 ? (
-            <div className="empty">Aucune pizza sélectionnée.</div>
-          ) : (
-            <div className="multiline-text">
-              {selectedItems
-                .map((item) => `${item.quantity} x ${item.pizza.name}`)
-                .join("\n")}
+            <div className="att-total-row">
+              <span>Total</span>
+              <strong>{formatEuros(totalPriceCents)}</strong>
             </div>
-          )}
-          <div style={{ marginTop: 8 }}>
-            Total : {totalPizzas} pizza(s) · {formatEuros(totalPriceCents)}
+
+            <p className="att-price-note">
+              Prix à titre indicatif. Toute modification des recettes peut
+              entraîner une variation du prix.
+            </p>
+          </section>
+
+          <div className="att-send-area">
+            {deviceMode === "mobile" ? (
+              <button
+                type="button"
+                className="att-image-button"
+                onClick={handleOpenSms}
+                aria-label="Envoyer un SMS"
+              >
+                <img
+                  src="/assets/button-sms-rabbit.svg"
+                  alt=""
+                  aria-hidden="true"
+                />
+              </button>
+            ) : deviceMode === "desktop" ? (
+              <button
+                type="button"
+                className="att-image-button"
+                onClick={handleSendDesktopRequest}
+                disabled={isSendingDesktopRequest}
+                aria-label="Envoyer ma demande"
+              >
+                <img
+                  src="/assets/button-send-rabbit.svg"
+                  alt=""
+                  aria-hidden="true"
+                />
+              </button>
+            ) : (
+              <p className="att-empty">Détection du type d’appareil en cours...</p>
+            )}
           </div>
-          {selectedSlot ? (
-            <div style={{ marginTop: 8 }}>Créneau sélectionné : {selectedSlot}</div>
+
+          {deviceMode === "desktop" ? (
+            <p className="att-desktop-note">
+              Une fois votre commande envoyée, elle sera contrôlée manuellement
+              et nous vous confirmerons par SMS l&apos;heure !
+            </p>
+          ) : null}
+
+          {successMessage ? (
+            <div className="message success">{successMessage}</div>
+          ) : null}
+
+          {copyMessage ? <div className="message success">{copyMessage}</div> : null}
+
+          {deviceMode === "mobile" ? (
+            <details className="att-sms-preview">
+              <summary>Voir le message généré</summary>
+              <textarea id="smsPreview" value={smsBody} readOnly />
+
+              <button
+                type="button"
+                className="att-secondary-outline-button att-full-width"
+                onClick={handleCopyMessage}
+              >
+                Copier le message (iOS)
+              </button>
+            </details>
           ) : null}
         </div>
+      </aside>
 
-        {deviceMode === "mobile" ? (
-          <div className="actions">
-            <button
-              type="button"
-              className="primary"
-              onClick={handleOpenSms}
-            >
-              Ouvrir mon appli SMS
-            </button>
-
-            <button
-              type="button"
-              className="secondary"
-              onClick={handleCopyMessage}
-            >
-              Copier le message
-            </button>
+      {deviceMode === "desktop" ? (
+        <section className="att-mobile-explanation-card">
+          <div className="att-phone-sketch" aria-hidden="true" />
+          <div>
+            <h2>Sur mobile, encore plus simple !</h2>
+            <p>
+              Votre demande est envoyée par SMS et un échange rapide permet de
+              confirmer le créneau.
+            </p>
           </div>
-        ) : deviceMode === "desktop" ? (
-          <div className="actions">
-            <button
-              type="button"
-              className="primary"
-              onClick={handleSendDesktopRequest}
-              disabled={isSendingDesktopRequest}
-            >
-              {isSendingDesktopRequest
-                ? "Envoi..."
-                : "Envoyer ma demande"}
-            </button>
-          </div>
-        ) : (
-          <div className="small">
-            Détection du type d&apos;appareil en cours...
-          </div>
-        )}
-
-        {errorMessage ? <div className="message error">{errorMessage}</div> : null}
-        {successMessage ? (
-          <div className="message success">{successMessage}</div>
-        ) : null}
-        {copyMessage ? <div className="message success">{copyMessage}</div> : null}
-
-        <div className="field">
-          <label htmlFor="smsPreview">Message généré</label>
-          <textarea id="smsPreview" value={smsBody} readOnly />
-        </div>
-      </section>
-    </div>
+        </section>
+      ) : null}
+    </section>
   );
 }

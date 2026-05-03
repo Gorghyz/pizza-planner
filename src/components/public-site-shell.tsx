@@ -1,6 +1,8 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+const FACEBOOK_URL = "https://www.facebook.com/profile.php?id=61588844054910";
+
 type PublicSiteShellProps = {
   children: ReactNode;
   currentPage?: "home" | "carte";
@@ -43,7 +45,7 @@ function PublicHeader({ currentPage }: Pick<PublicSiteShellProps, "currentPage">
         )}
 
         <a
-          href="https://www.facebook.com/"
+          href={FACEBOOK_URL}
           target="_blank"
           rel="noreferrer"
           className="att-facebook-dot"
@@ -69,7 +71,7 @@ function PublicFooter() {
         </Link>
 
         <a
-          href="https://www.facebook.com/"
+          href={FACEBOOK_URL}
           target="_blank"
           rel="noreferrer"
           className="att-public-footer-social"

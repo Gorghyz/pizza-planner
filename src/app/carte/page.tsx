@@ -1,45 +1,50 @@
-import Link from "next/link";
-
 import PublicCarteBuilder from "@/components/public-carte-builder";
-import PublicOpeningInfo from "@/components/public-opening-info";
 import PublicSiteShell from "@/components/public-site-shell";
-import {
-  getActivePizzas,
-  getPublicLocationsWithHours,
-  getTodayServiceSettings,
-} from "@/lib/data";
+import { getActivePizzas } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
 
 export default async function CartePage() {
-  const [pizzas, locations, todayService] = await Promise.all([
-    getActivePizzas(),
-    getPublicLocationsWithHours(),
-    getTodayServiceSettings(),
-  ]);
+  const pizzas = await getActivePizzas();
 
   return (
     <PublicSiteShell currentPage="carte">
-      <header className="page-header">
-        <h1>La carte des pizzas</h1>
-        <p>
-          Choisissez vos pizzas, indiquez l&apos;heure souhaitée, puis
-          sélectionnez un créneau disponible. Les horaires et lieux affichés
-          ci-dessous sont ceux actuellement publiés.
-        </p>
+      <section
+        aria-labelledby="carte-title"
+        style={{
+          padding: "34px 0 32px",
+        }}
+      >
+        <h1
+          id="carte-title"
+          style={{
+            position: "absolute",
+            width: "1px",
+            height: "1px",
+            padding: 0,
+            margin: "-1px",
+            overflow: "hidden",
+            clip: "rect(0, 0, 0, 0)",
+            whiteSpace: "nowrap",
+            border: 0,
+          }}
+        >
+          La carte
+        </h1>
 
-        <div className="page-actions">
-          <Link href="/" className="link-button secondary-link">
-            Retour à l&apos;accueil
-          </Link>
-        </div>
-      </header>
+        <img
+          src="/assets/carte-hero-illustration.svg"
+          alt=""
+          aria-hidden="true"
+          style={{
+            display: "block",
+            width: "100%",
+            height: "auto",
+          }}
+        />
+      </section>
 
-      <PublicOpeningInfo locations={locations} todayService={todayService} />
-
-      <div style={{ marginTop: 24 }}>
-        <PublicCarteBuilder pizzas={pizzas} />
-      </div>
+      <PublicCarteBuilder pizzas={pizzas} />
     </PublicSiteShell>
   );
 }

@@ -477,7 +477,528 @@
   font-size: 1.28rem;
 }
 
+/* Carte */
+
+.att-carte-hero {
+  min-height: 300px;
+  display: grid;
+  grid-template-columns: minmax(300px, 0.72fr) 1fr;
+  gap: 28px;
+  align-items: end;
+  padding: 48px 0 28px;
+}
+
+.att-carte-hero h1 {
+  margin: 0;
+  font-family: "Segoe Print", "Comic Sans MS", "Bradley Hand", cursive;
+  font-size: clamp(4rem, 8vw, 7.2rem);
+  line-height: 0.86;
+  letter-spacing: -0.08em;
+  transform: rotate(-3deg);
+}
+
+.att-carte-hero p {
+  max-width: 520px;
+  margin: 22px 0 0;
+  font-family: "Segoe Print", "Comic Sans MS", "Bradley Hand", cursive;
+  font-size: 1.3rem;
+  font-weight: 900;
+  line-height: 1.42;
+  text-align: center;
+}
+
+.att-carte-hero-doodle {
+  height: 130px;
+  align-self: end;
+  border-bottom: 4px solid #111111;
+  position: relative;
+  overflow: hidden;
+}
+
+.att-carte-hero-doodle::before {
+  content: "✿     ✤       ✿    ✤       ✿        ✤";
+  position: absolute;
+  left: 10%;
+  bottom: 8px;
+  font-size: 2rem;
+  letter-spacing: 0.22em;
+  color: #111111;
+}
+
+.att-carte-hero-doodle::after {
+  content: "||||||||||||||||||||||||||||||||||||||||||||||";
+  position: absolute;
+  left: 2%;
+  right: 2%;
+  bottom: -5px;
+  font-size: 3rem;
+  letter-spacing: -0.26em;
+  color: #111111;
+  transform: skewX(-15deg);
+}
+
+.att-carte-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 430px);
+  gap: 38px;
+  align-items: start;
+}
+
+.att-pizza-column {
+  display: grid;
+  gap: 34px;
+}
+
+.att-pizza-group h2 {
+  display: inline-block;
+  margin: 0 0 18px;
+  font-family: "Segoe Print", "Comic Sans MS", "Bradley Hand", cursive;
+  font-size: clamp(2rem, 3.4vw, 3rem);
+  line-height: 1;
+  letter-spacing: -0.06em;
+  transform: rotate(-2deg);
+  border-bottom: 4px solid #111111;
+}
+
+.att-pizza-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: 22px;
+}
+
+.att-pizza-card {
+  border: 2px solid #111111;
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(255, 253, 248, 0.94);
+}
+
+.att-pizza-photo {
+  width: 100%;
+  aspect-ratio: 16 / 8.5;
+  object-fit: cover;
+  border-bottom: 2px solid #111111;
+}
+
+.att-pizza-photo-placeholder {
+  width: 100%;
+  aspect-ratio: 16 / 8.5;
+  border-bottom: 2px solid #111111;
+  background:
+    radial-gradient(circle at 50% 55%, transparent 0 58px, #111111 59px 66px, transparent 67px),
+    radial-gradient(circle at 35% 40%, #111111 0 9px, transparent 10px),
+    radial-gradient(circle at 62% 42%, #111111 0 8px, transparent 9px),
+    radial-gradient(circle at 50% 65%, #111111 0 7px, transparent 8px),
+    #f7f1e7;
+}
+
+.att-pizza-card-body {
+  padding: 12px 16px 16px;
+}
+
+.att-pizza-card h3 {
+  margin: 0 0 8px;
+  font-family: "Segoe Print", "Comic Sans MS", "Bradley Hand", cursive;
+  font-size: 1.85rem;
+  line-height: 1;
+  letter-spacing: -0.06em;
+}
+
+.att-pizza-description {
+  margin: 0 0 10px;
+  line-height: 1.35;
+  font-weight: 700;
+}
+
+.att-pizza-allergens {
+  margin: 0 0 14px;
+  font-size: 0.9rem;
+  font-style: italic;
+  font-weight: 800;
+}
+
+.att-pizza-bottom-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.att-pizza-price {
+  font-size: 1.28rem;
+  white-space: nowrap;
+}
+
+.att-quantity-control {
+  display: inline-grid;
+  grid-template-columns: 38px 38px 38px;
+  align-items: center;
+  border: 2px solid #111111;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fffdf8;
+}
+
+.att-quantity-control button {
+  height: 38px;
+  padding: 0;
+  border-radius: 0;
+  background: #fffdf8;
+  color: #111111;
+  font-size: 1.35rem;
+  font-weight: 900;
+  box-shadow: none;
+}
+
+.att-quantity-control span {
+  text-align: center;
+  font-size: 1.15rem;
+  font-weight: 900;
+}
+
+.att-small-quantity-control {
+  grid-template-columns: 34px 34px 34px;
+}
+
+.att-small-quantity-control button {
+  height: 34px;
+}
+
+.att-menu-note {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  border: 2px solid #111111;
+  border-radius: 8px;
+  padding: 16px 22px;
+  background: rgba(255, 253, 248, 0.94);
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.att-menu-note strong {
+  font-family: "Segoe Print", "Comic Sans MS", "Bradley Hand", cursive;
+  font-size: 1.55rem;
+  transform: rotate(-12deg);
+}
+
+.att-order-panel {
+  position: static;
+}
+
+.att-order-panel-inner {
+  border: 2px solid #111111;
+  border-radius: 12px;
+  padding: 30px 24px 24px;
+  background: rgba(255, 253, 248, 0.96);
+}
+
+.att-order-panel h2 {
+  display: inline-block;
+  margin: 0 0 26px;
+  font-family: "Segoe Print", "Comic Sans MS", "Bradley Hand", cursive;
+  font-size: 2.25rem;
+  line-height: 1;
+  letter-spacing: -0.06em;
+  border-bottom: 4px solid #111111;
+  transform: rotate(-2deg);
+}
+
+.att-public-field {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 16px;
+}
+
+.att-public-field label {
+  font-family: "Segoe Print", "Comic Sans MS", "Bradley Hand", cursive;
+  font-weight: 900;
+}
+
+.att-public-field input,
+.att-public-field textarea {
+  width: 100%;
+  border: 2px solid #111111;
+  border-radius: 8px;
+  background: #fffdf8;
+  min-height: 52px;
+  padding: 10px 12px;
+  font: inherit;
+  font-weight: 700;
+}
+
+.att-public-field textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.att-full-width {
+  width: 100%;
+}
+
+.att-dashed-separator {
+  margin: 28px 0;
+  border-top: 3px dashed rgba(17, 17, 17, 0.55);
+}
+
+.att-order-subsection h3 {
+  margin: 0 0 18px;
+  text-align: center;
+  font-family: "Segoe Print", "Comic Sans MS", "Bradley Hand", cursive;
+  font-size: 1.45rem;
+  font-weight: 900;
+  line-height: 1.1;
+}
+
+.att-empty {
+  margin: 0;
+  color: #555555;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.att-slot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(74px, max-content));
+  justify-content: center;
+  gap: 12px;
+}
+
+.att-slot-pill {
+  width: 74px;
+  min-height: 50px;
+  border: 2px solid #111111;
+  border-radius: 8px;
+  background: #fffdf8;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-family: "Segoe Print", "Comic Sans MS", "Bradley Hand", cursive;
+  font-weight: 900;
+}
+
+.att-slot-pill input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.att-slot-pill-selected {
+  background: #111111;
+  color: #ffffff;
+}
+
+.att-slot-help {
+  margin: 14px 0 0;
+  text-align: center;
+  font-family: "Segoe Print", "Comic Sans MS", "Bradley Hand", cursive;
+  font-weight: 900;
+}
+
+.att-summary-list {
+  display: grid;
+  gap: 13px;
+}
+
+.att-summary-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 14px;
+  align-items: center;
+}
+
+.att-summary-row strong {
+  display: block;
+  font-family: "Segoe Print", "Comic Sans MS", "Bradley Hand", cursive;
+  font-size: 1.18rem;
+  line-height: 1.05;
+}
+
+.att-summary-row span {
+  display: block;
+  font-weight: 700;
+}
+
+.att-total-row {
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 2px solid #111111;
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 18px;
+  font-family: "Segoe Print", "Comic Sans MS", "Bradley Hand", cursive;
+  font-weight: 900;
+}
+
+.att-total-row span {
+  font-size: 1.55rem;
+}
+
+.att-total-row strong {
+  font-size: 2.25rem;
+  line-height: 1;
+  border-bottom: 4px solid #111111;
+  transform: rotate(-2deg);
+}
+
+.att-send-area {
+  margin-top: 30px;
+}
+
+.att-image-button {
+  width: 100%;
+  display: block;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  cursor: pointer;
+}
+
+.att-image-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.att-image-button img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.att-mobile-actions {
+  display: grid;
+  gap: 12px;
+}
+
+.att-secondary-outline-button {
+  min-height: 48px;
+  border: 2px solid #111111;
+  border-radius: 8px;
+  background: #fffdf8;
+  color: #111111;
+  font-family: "Segoe Print", "Comic Sans MS", "Bradley Hand", cursive;
+  font-weight: 900;
+}
+
+.att-order-note {
+  margin: 18px 0 0;
+  font-family: "Segoe Print", "Comic Sans MS", "Bradley Hand", cursive;
+  font-weight: 900;
+  line-height: 1.45;
+}
+
+.att-sms-preview {
+  margin-top: 18px;
+  border: 1px solid #111111;
+  border-radius: 8px;
+  padding: 12px;
+  background: #fffdf8;
+}
+
+.att-sms-preview summary {
+  cursor: pointer;
+  font-weight: 900;
+}
+
+.att-sms-preview textarea {
+  width: 100%;
+  min-height: 150px;
+  margin-top: 12px;
+  border: 1px solid #111111;
+  border-radius: 8px;
+  padding: 10px;
+  font: inherit;
+}
+
+.att-mobile-explanation-card {
+  grid-column: 1 / -1;
+  border: 2px solid #111111;
+  border-radius: 8px;
+  min-height: 230px;
+  display: grid;
+  grid-template-columns: 0.9fr 1fr;
+  gap: 36px;
+  align-items: center;
+  padding: 24px 70px;
+  background: rgba(255, 253, 248, 0.86);
+}
+
+.att-mobile-explanation-card h2 {
+  margin: 0 0 18px;
+  font-family: "Segoe Print", "Comic Sans MS", "Bradley Hand", cursive;
+  font-size: 2.05rem;
+}
+
+.att-mobile-explanation-card p {
+  margin: 0;
+  max-width: 450px;
+  font-family: "Segoe Print", "Comic Sans MS", "Bradley Hand", cursive;
+  font-size: 1.05rem;
+  font-weight: 900;
+  line-height: 1.45;
+}
+
+.att-phone-sketch {
+  justify-self: center;
+  width: 230px;
+  height: 200px;
+  border: 7px solid #111111;
+  border-bottom: 0;
+  border-radius: 32px 32px 0 0;
+  position: relative;
+  background:
+    linear-gradient(#111111 0 7px, transparent 7px 42px, #111111 42px 45px, transparent 45px),
+    #fffdf8;
+}
+
+.att-phone-sketch::before {
+  content: "À table tonton!";
+  position: absolute;
+  left: 20px;
+  top: 14px;
+  font-family: "Segoe Print", "Comic Sans MS", "Bradley Hand", cursive;
+  font-weight: 900;
+  font-size: 1rem;
+}
+
+.att-phone-sketch::after {
+  content: "Envoyer un SMS";
+  position: absolute;
+  left: 24px;
+  right: 24px;
+  bottom: 20px;
+  min-height: 46px;
+  border-radius: 8px;
+  background: #111111;
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+  font-family: "Segoe Print", "Comic Sans MS", "Bradley Hand", cursive;
+  font-size: 1.15rem;
+  font-weight: 900;
+}
+
+.att-empty-menu-card {
+  padding: 28px;
+  font-weight: 900;
+}
+
 /* Responsive */
+
+@media (max-width: 1100px) {
+  .att-carte-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .att-mobile-explanation-card {
+    grid-template-columns: 1fr;
+    padding: 24px;
+  }
+}
 
 @media (max-width: 980px) {
   .att-public-header {
@@ -499,7 +1020,8 @@
 
   .att-home-hero,
   .att-location-layout,
-  .att-about-section {
+  .att-about-section,
+  .att-carte-hero {
     grid-template-columns: 1fr;
   }
 
@@ -520,6 +1042,20 @@
   .att-about-copy .att-section-title {
     text-align: center;
     margin-left: auto;
+  }
+
+  .att-carte-hero {
+    min-height: auto;
+  }
+}
+
+@media (max-width: 760px) {
+  .att-pizza-card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .att-summary-row {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -581,5 +1117,34 @@
   .att-map-card,
   .att-map-card-inner {
     min-height: 260px;
+  }
+
+  .att-carte-hero h1 {
+    font-size: 4.3rem;
+  }
+
+  .att-carte-hero p {
+    text-align: left;
+    font-size: 1.1rem;
+  }
+
+  .att-carte-hero-doodle {
+    height: 82px;
+  }
+
+  .att-order-panel-inner {
+    padding: 24px 16px 20px;
+  }
+
+  .att-order-panel h2 {
+    font-size: 1.95rem;
+  }
+
+  .att-slot-grid {
+    grid-template-columns: repeat(3, minmax(70px, 1fr));
+  }
+
+  .att-slot-pill {
+    width: 100%;
   }
 }

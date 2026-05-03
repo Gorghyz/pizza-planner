@@ -1,10 +1,13 @@
 import Link from "next/link";
 
 import PublicSiteShell from "@/components/public-site-shell";
+import { WEEKDAYS } from "@/lib/business-settings";
 import { getPublicLocationsWithHours, getTodayServiceSettings } from "@/lib/data";
-import type { BusinessLocation, LocationWithHours, TodayServiceSettings } from "@/lib/types";
+import type { BusinessLocation, LocationWithHours, OpeningHour, TodayServiceSettings } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+
+const FACEBOOK_URL = "https://www.facebook.com/profile.php?id=61588844054910";
 
 function buildOpenStreetMapUrl(location: BusinessLocation | null): string | null {
   if (!location) {
@@ -29,6 +32,30 @@ function buildOpenStreetMapUrl(location: BusinessLocation | null): string | null
   return `https://www.openstreetmap.org/search?query=${encodeURIComponent(query)}`;
 }
 
+function buildOpenStreetMapEmbedUrl(location: BusinessLocation | null): string | null {
+  if (
+    !location ||
+    typeof location.latitude !== "number" ||
+    typeof location.longitude !== "number"
+  ) {
+    return null;
+  }
+
+  const lat = location.latitude;
+  const lon = location.longitude;
+  const deltaLat = 0.006;
+  const deltaLon = 0.01;
+
+  const bbox = [
+    lon - deltaLon,
+    lat - deltaLat,
+    lon + deltaLon,
+    lat + deltaLat,
+  ].join(",");
+
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${lat},${lon}`;
+}
+
 function formatServicePlace(todayService: TodayServiceSettings): string {
   if (!todayService.location) {
     return "Lieu à venir";
@@ -39,16 +66,41 @@ function formatServicePlace(todayService: TodayServiceSettings): string {
     .join(" — ");
 }
 
-function formatServiceHours(todayService: TodayServiceSettings): string {
-  if (!todayService.isOpen) {
-    return `${todayService.weekdayLabel} : fermé`;
-  }
-
-  return `${todayService.weekdayLabel} : ${todayService.opensAt} – ${todayService.closesAt}`;
-}
-
 function getActiveLocations(locations: LocationWithHours[]): LocationWithHours[] {
   return locations.filter((location) => location.isActive);
+}
+
+function getCurrentLocationWithHours(
+  locations: LocationWithHours[],
+  todayService: TodayServiceSettings,
+): LocationWithHours | null {
+  if (!todayService.location) {
+    return locations.find((location) => location.isActive) ?? null;
+  }
+
+  return (
+    locations.find((location) => location.id === todayService.location?.id) ??
+    locations.find((location) => location.isActive) ??
+    null
+  );
+}
+
+function formatOpeningHour(hour: OpeningHour | undefined): string {
+  if (!hour || !hour.isOpen || !hour.opensAt || !hour.closesAt) {
+    return "fermé";
+  }
+
+  return `${hour.opensAt} – ${hour.closesAt}`;
+}
+
+function buildOrderedWeekdays(todayIsoWeekday: number) {
+  const todayIndex = WEEKDAYS.findIndex((day) => day.value === todayIsoWeekday);
+
+  if (todayIndex < 0) {
+    return WEEKDAYS;
+  }
+
+  return [...WEEKDAYS.slice(todayIndex), ...WEEKDAYS.slice(0, todayIndex)];
 }
 
 export default async function PublicHomePage() {
@@ -58,7 +110,10 @@ export default async function PublicHomePage() {
   ]);
 
   const activeLocations = getActiveLocations(locations);
+  const currentLocation = getCurrentLocationWithHours(locations, todayService);
   const mapUrl = buildOpenStreetMapUrl(todayService.location);
+  const mapEmbedUrl = buildOpenStreetMapEmbedUrl(todayService.location);
+  const orderedWeekdays = buildOrderedWeekdays(todayService.isoWeekday);
 
   return (
     <PublicSiteShell currentPage="home">
@@ -89,7 +144,7 @@ export default async function PublicHomePage() {
         </div>
       </section>
 
-      <section className="att-home-feature-grid" aria-label="Informations principales">
+      <section className="att-home-feature-grid att-home-feature-grid-two" aria-label="Informations principales">
         <article className="att-ink-card att-feature-card">
           <div className="att-feature-icon">◉</div>
           <div>
@@ -102,20 +157,12 @@ export default async function PublicHomePage() {
         </article>
 
         <article className="att-ink-card att-feature-card">
-          <div className="att-feature-icon">▣</div>
-          <div>
-            <h2>Horaires & lieux</h2>
-            <p>Retrouvez où nous trouver et nos horaires mis à jour.</p>
-          </div>
-        </article>
-
-        <article className="att-ink-card att-feature-card">
           <div className="att-feature-icon">⌁</div>
           <div>
-            <h2>Pizzas de saison</h2>
+            <h2>Pizzas généreuses</h2>
             <p>
-              Des recettes inspirées par la saison, avec des ingrédients locaux
-              sélectionnés avec soin.
+              Des pizzas gourmandes et généreuses et des nouveautés chaque mois à
+              venir découvrir !
             </p>
           </div>
         </article>
@@ -134,61 +181,100 @@ export default async function PublicHomePage() {
               </div>
             </article>
 
-            <article className="att-ink-card att-small-info-card">
+            <article className="att-ink-card att-small-info-card att-hours-card">
               <div className="att-info-icon">◷</div>
               <div>
                 <h3>Horaires</h3>
-                <p>{formatServiceHours(todayService)}</p>
+
+                <ul className="att-week-hours">
+                  {orderedWeekdays.map((day) => {
+                    const hour = currentLocation?.hours.find(
+                      (entry) => entry.isoWeekday === day.value,
+                    );
+
+                    const isToday = day.value === todayService.isoWeekday;
+
+                    return (
+                      <li key={day.value} className={isToday ? "att-today" : ""}>
+                        <span>{day.label}</span>
+                        <span>{formatOpeningHour(hour)}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
               </div>
             </article>
 
             <article className="att-ink-card att-small-info-card">
-              <div className="att-info-icon">✉</div>
+              <a
+                href={FACEBOOK_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="att-info-icon att-info-facebook"
+                aria-label="Suivez-nous sur Facebook"
+              >
+                f
+              </a>
+
               <div>
-                <h3>Toute l’actu par SMS !</h3>
+                <h3>Actualités</h3>
                 <p>
-                  Envie d’être informé·e en temps réel ? Inscrivez-vous via notre
-                  page dédiée.
+                  Envie d&apos;être informé.e en temps réel ? Rejoignez notre page
+                  Facebook pour suivre les actualités.
                 </p>
               </div>
             </article>
           </div>
 
           <article className="att-map-card">
-            <div className="att-map-card-inner">
-              <span className="att-map-pin" aria-hidden="true">
-                ●
-              </span>
+            {mapEmbedUrl ? (
+              <iframe
+                src={mapEmbedUrl}
+                title="Carte OpenStreetMap du lieu de service"
+                className="att-osm-iframe"
+                loading="lazy"
+              />
+            ) : (
+              <div className="att-map-card-inner">
+                <span className="att-map-pin" aria-hidden="true">
+                  ●
+                </span>
 
-              <div>
-                <h3>{todayService.location?.city || "À table tonton !"}</h3>
-
-                {todayService.location ? (
-                  <p>
-                    {todayService.location.name}
-                    {todayService.location.address ? (
-                      <>
-                        <br />
-                        {todayService.location.address}
-                      </>
-                    ) : null}
-                    {todayService.location.city ? (
-                      <>
-                        <br />
-                        {todayService.location.city}
-                      </>
-                    ) : null}
-                  </p>
-                ) : (
-                  <p>Les informations de lieu seront bientôt publiées ici.</p>
-                )}
-
-                {mapUrl ? (
-                  <a href={mapUrl} target="_blank" rel="noreferrer">
-                    Voir sur OpenStreetMap
-                  </a>
-                ) : null}
+                <div>
+                  <h3>{todayService.location?.city || "À table tonton !"}</h3>
+                  <p>Les coordonnées GPS du lieu de service seront bientôt publiées.</p>
+                </div>
               </div>
+            )}
+
+            <div className="att-map-overlay">
+              <h3>{todayService.location?.city || "À table tonton !"}</h3>
+
+              {todayService.location ? (
+                <p>
+                  {todayService.location.name}
+                  {todayService.location.address ? (
+                    <>
+                      <br />
+                      {todayService.location.address}
+                    </>
+                  ) : null}
+                  {todayService.location.city ? (
+                    <>
+                      <br />
+                      {todayService.location.city}
+                    </>
+                  ) : null}
+                </p>
+              ) : (
+                <p>Les informations de lieu seront bientôt publiées ici.</p>
+              )}
+
+              {mapUrl ? (
+                <a href={mapUrl} target="_blank" rel="noreferrer">
+                  Voir sur OpenStreetMap
+                </a>
+              ) : null}
             </div>
           </article>
         </div>
@@ -238,40 +324,32 @@ export default async function PublicHomePage() {
       <section id="nos-valeurs" className="att-home-section att-values-section">
         <h2 className="att-section-title">Nos valeurs</h2>
 
-        <div className="att-values-grid">
-          <article className="att-ink-card att-value-card">
-            <div className="att-value-symbol">⌁</div>
-            <h3>Une carte courte, qui change avec les saisons</h3>
-            <p>
-              Des recettes au fil des récoltes pour une pizza toujours
-              savoureuse.
-            </p>
-          </article>
+        <article className="att-ink-card att-values-text-card">
+          <p>
+            Nous aimerions pouvoir vous dire que tous nos produits sont frais,
+            locaux et de saison. Qu&apos;ils sont bios, et qu&apos;ils permettent
+            aux producteurs de vivre confortablement de leur travail. Mais nous
+            voulons aussi proposer une offre qui soit accessible à tous, parce que
+            c&apos;est aussi ça être généreux. Alors, vu les temps difficiles que
+            nous traversons, nous faisons le choix d&apos;être honnête : nous
+            faisons du mieux possible, et nous nous adaptons.
+          </p>
 
-          <article className="att-ink-card att-value-card">
-            <div className="att-value-symbol">◉</div>
-            <h3>Des ingrédients et des gourmandises de découverte</h3>
-            <p>
-              Nous sélectionnons avec soin nos produits auprès de producteurs
-              locaux.
-            </p>
-          </article>
+          <p>
+            Pour vivre correctement de ce travail, nous fixons nos prix de façon à
+            ce que notre marge nette soit de 7 à 8 € par produit vendu. Le calcul
+            du prix prend donc en compte tout un faisceau de paramètres, parmi
+            lesquels : ingrédients, prix de l&apos;énergie, assurances, emballage,
+            etc.
+          </p>
 
-          <article className="att-ink-card att-value-card">
-            <div className="att-value-symbol">◠</div>
-            <h3>Une pâte généreuse et gourmande</h3>
-            <p>
-              Pétrie lentement pour plus de légèreté et des plaisirs
-              authentiques.
-            </p>
-          </article>
+          <p>
+            Nous apprécions d&apos;avoir vos retours, alors n&apos;hésitez pas à
+            laisser ça et là vos avis concernant notre travail !
+          </p>
 
-          <article className="att-ink-card att-value-card">
-            <div className="att-value-symbol">✓</div>
-            <h3>Un service simple : tu commandes, on confirme, et c’est prêt !</h3>
-            <p>Prise de demande et retrait sur place sans tracas.</p>
-          </article>
-        </div>
+          <p className="att-values-signature">Tonton.</p>
+        </article>
       </section>
     </PublicSiteShell>
   );
