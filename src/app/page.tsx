@@ -3,7 +3,12 @@ import Link from "next/link";
 import PublicSiteShell from "@/components/public-site-shell";
 import { WEEKDAYS } from "@/lib/business-settings";
 import { getPublicLocationsWithHours, getTodayServiceSettings } from "@/lib/data";
-import type { BusinessLocation, LocationWithHours, OpeningHour, TodayServiceSettings } from "@/lib/types";
+import type {
+  BusinessLocation,
+  LocationWithHours,
+  OpeningHour,
+  TodayServiceSettings,
+} from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +37,9 @@ function buildOpenStreetMapUrl(location: BusinessLocation | null): string | null
   return `https://www.openstreetmap.org/search?query=${encodeURIComponent(query)}`;
 }
 
-function buildOpenStreetMapEmbedUrl(location: BusinessLocation | null): string | null {
+function buildOpenStreetMapEmbedUrl(
+  location: BusinessLocation | null,
+): string | null {
   if (
     !location ||
     typeof location.latitude !== "number" ||
@@ -120,13 +127,9 @@ export default async function PublicHomePage() {
       <section className="att-home-hero">
         <div className="att-home-hero-copy">
           <h1>
-            Des pizzas artisanales,
+            Des pizzas gourmandes et généreuses,
             <br />
-            de saison et locales
-            <br />
-            à commander
-            <br />
-            simplement !
+            préparées avec amour du goût !
           </h1>
 
           <Link href="/carte" className="att-black-button">
@@ -144,7 +147,10 @@ export default async function PublicHomePage() {
         </div>
       </section>
 
-      <section className="att-home-feature-grid att-home-feature-grid-two" aria-label="Informations principales">
+      <section
+        className="att-home-feature-grid att-home-feature-grid-two"
+        aria-label="Informations principales"
+      >
         <article className="att-ink-card att-feature-card">
           <div className="att-feature-icon">◉</div>
           <div>

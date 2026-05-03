@@ -5,15 +5,20 @@ const FACEBOOK_URL = "https://www.facebook.com/profile.php?id=61588844054910";
 
 type PublicSiteShellProps = {
   children: ReactNode;
-  currentPage?: "home" | "carte";
+  currentPage?: "home" | "carte" | "legal";
 };
 
 function PublicHeader({ currentPage }: Pick<PublicSiteShellProps, "currentPage">) {
   const isHome = currentPage === "home";
+  const isLegal = currentPage === "legal";
 
   return (
     <header className="att-public-header">
-      <Link href="/" className="att-public-logo-link" aria-label="Accueil À table tonton !">
+      <Link
+        href="/"
+        className="att-public-logo-link"
+        aria-label="Accueil À table tonton !"
+      >
         <img
           src="/assets/logo-header.svg"
           alt="À table tonton !"
@@ -22,13 +27,25 @@ function PublicHeader({ currentPage }: Pick<PublicSiteShellProps, "currentPage">
       </Link>
 
       <nav className="att-public-nav" aria-label="Navigation principale">
-        <Link
-          href="/carte"
-          className="att-public-nav-cta"
-          aria-current={currentPage === "carte" ? "page" : undefined}
-        >
-          Voir la carte / Commander
-        </Link>
+        {isLegal ? (
+          <>
+            <Link href="/" className="att-public-nav-cta">
+              Accueil
+            </Link>
+
+            <Link href="/carte" className="att-public-nav-cta">
+              Voir la carte / Commander
+            </Link>
+          </>
+        ) : (
+          <Link
+            href="/carte"
+            className="att-public-nav-cta"
+            aria-current={currentPage === "carte" ? "page" : undefined}
+          >
+            Voir la carte / Commander
+          </Link>
+        )}
 
         {isHome ? (
           <>
@@ -36,7 +53,7 @@ function PublicHeader({ currentPage }: Pick<PublicSiteShellProps, "currentPage">
             <a href="#qui-sommes-nous">Qui sommes-nous ?</a>
             <a href="#nos-valeurs">Nos valeurs</a>
           </>
-        ) : (
+        ) : isLegal ? null : (
           <>
             <Link href="/">Accueil</Link>
             <Link href="/#qui-sommes-nous">Qui sommes-nous ?</Link>
@@ -62,7 +79,11 @@ function PublicFooter() {
   return (
     <footer className="att-public-footer">
       <div className="att-public-footer-inner">
-        <Link href="/" className="att-public-footer-logo-link" aria-label="Accueil À table tonton !">
+        <Link
+          href="/"
+          className="att-public-footer-logo-link"
+          aria-label="Accueil À table tonton !"
+        >
           <img
             src="/assets/logo-header.svg"
             alt="À table tonton !"
@@ -88,7 +109,10 @@ function PublicFooter() {
 
         <div className="att-public-footer-links">
           <strong>Liens utiles</strong>
-          <Link href="/transparence">Politique de confidentialité</Link>
+          <Link href="/mentions-legales">Mentions légales</Link>
+          <Link href="/politique-confidentialite">
+            Politique de confidentialité
+          </Link>
         </div>
 
         <Link href="/business/login" className="att-public-pro-link">
