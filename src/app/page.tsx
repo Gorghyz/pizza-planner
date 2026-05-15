@@ -307,23 +307,100 @@ export default async function PublicHomePage() {
           <h2 className="att-section-title">Qui sommes-nous ?</h2>
 
           <p>
-            À bord de notre remorque, nous préparons des pizzas artisanales avec
-            des produits locaux et de saison.
+            À table tonton !, c’est une petite aventure locale portée par Tonton,
+            installé à Marval depuis 2023.
           </p>
 
           <p>
-            Notre carte est courte et évolue régulièrement au gré des envies et
-            des récoltes, en faisant rimer qualité et simplicité.
+            Je viens de Grenoble, avec un nom italien dans mon histoire familiale :
+            Di Tucci, du côté de ma mère. Ce n’est ni un label, ni un argument
+            marketing : c’est un hommage. Ma gourmandise naît ici, de son amour,
+            et de l’idée qu’elle m’a transmise : régaler ceux qu’on aime, c’est
+            une façon de le leur dire.
           </p>
 
           <p>
-            Ici, tout est fait avec passion, convivialité et générosité. Merci de
-            faire vivre votre aventure locale !
+            Avant d’en arriver là, j’ai travaillé dans plusieurs milieux, parfois
+            dans des conditions difficiles. J’en ai gardé une conviction simple :
+            quand on travaille dur et que chaque euro est compté, on mérite le
+            meilleur : une cuisine sincère, généreuse, faite avec respect.
           </p>
 
-          <div className="att-heart" aria-hidden="true">
-            ♡
-          </div>
+          <p>
+            C’est ce que j’essaie de faire avec À table tonton ! : des pizzas de
+            qualité, une carte courte, des produits choisis avec soin, moins de
+            gaspillage, et des prix aussi justes que possible.
+          </p>
+
+          <p>
+            Je suis gourmand, curieux, un peu touche-à-tout. J’aime apprendre,
+            essayer, améliorer. Cette remorque, c’est ma façon de cuisiner
+            simplement, de faire plaisir, et de proposer quelque chose de bon à
+            partager.
+          </p>
+
+          <p>Dans l’aventure À table tonton !, il y a aussi ma complice.</p>
+
+          <p>
+            D’origine britannique, installée sur le territoire depuis près de
+            vingt ans, elle y est un visage bien plus familier que le mien. Après
+            ses toutes premières années en Angleterre, elle a grandi en Bourgogne,
+            dans une famille où la gourmandise et la générosité faisaient partie
+            de l’héritage. Chez elle aussi, bien manger n’a jamais été seulement
+            une affaire de recette : c’est une manière d’accueillir, de
+            transmettre, de prendre soin.
+          </p>
+
+          <p>
+            Après plusieurs expériences dans la restauration, elle s’est découverte
+            paysanne. Fromagère reconnue, éleveuse, maman, elle apporte à cette
+            aventure son regard sur les produits, les saisons, le travail concret,
+            et les choses bien faites.
+          </p>
+
+          <p>
+            Elle est aussi la maman de Binette, petite fille géniale qui m’appelle
+            “Tonton”, et qui a donné à ce projet une part de son nom, de sa
+            tendresse, et de son désordre joyeux.
+          </p>
+
+          <p>
+            <strong>Une ferme autour de la remorque</strong>
+          </p>
+
+          <p>
+            À table tonton ! est né au milieu d’une vie bien réelle, sur une ferme
+            de 13 hectares que nous habitons à plusieurs.
+          </p>
+
+          <p>
+            Cette ferme, c’est d’abord le projet du papa de Binette, avec qui je
+            partage plus de 20 ans d&apos;amitié. C’est aussi grâce à lui que je
+            suis arrivé sur ce territoire, et que cette histoire a commencé à
+            prendre forme.
+          </p>
+
+          <p>
+            On y rénove, on y cultive, on y élève, on y apprend à vivre ensemble.
+            Il y a des céréales, quelques légumes, des animaux, des urgences, des
+            saisons qui passent trop vite, des choses qui cassent, des choses qui
+            poussent. Beaucoup d’énergie est mise à faire vivre ce lieu, beaucoup
+            de temps aussi.
+          </p>
+
+          <p>
+            La ferme n&apos;a pas vocation à fournir la remorque au quotidien : ce
+            n’est ni notre promesse, ni notre échelle. Mais elle raconte quelque
+            chose de notre manière de vivre et de travailler : une attention aux
+            gestes, aux saisons, aux produits et au temps qu’il faut pour essayer
+            de bien faire.
+          </p>
+
+          <p>
+            À table tonton !, c’est aussi cela : une petite activité locale, portée
+            par un lieu vivant, une histoire d’amitiés, et l’envie de construire
+            quelque chose ici.
+          </p>
         </div>
       </section>
 
@@ -332,29 +409,39 @@ export default async function PublicHomePage() {
 
         <article className="att-ink-card att-values-text-card">
           <p>
-            Nous aimerions pouvoir vous dire que tous nos produits sont frais,
-            locaux et de saison. Qu&apos;ils sont bios, et qu&apos;ils permettent
-            aux producteurs de vivre confortablement de leur travail. Mais nous
-            voulons aussi proposer une offre qui soit accessible à tous, parce que
-            c&apos;est aussi ça être généreux. Alors, vu les temps difficiles que
-            nous traversons, nous faisons le choix d&apos;être honnête : nous
-            faisons du mieux possible, et nous nous adaptons.
+            Chez À table tonton !, nous voulons proposer une cuisine simple,
+            généreuse et exigeante, qui respecte autant les producteurs que les
+            clients.
           </p>
 
           <p>
-            Pour vivre correctement de ce travail, nous fixons nos prix de façon à
-            ce que notre marge nette soit de 7 à 8 € par produit vendu. Le calcul
-            du prix prend donc en compte tout un faisceau de paramètres, parmi
-            lesquels : ingrédients, prix de l&apos;énergie, assurances, emballage,
-            etc.
+            Nous privilégions les circuits courts dès que c’est possible, pour
+            travailler avec des producteurs du territoire, leur offrir des
+            débouchés concrets et mettre en valeur leur travail. Quand le local ne
+            suffit pas, nous cherchons des partenaires cohérents : artisans,
+            filières plus transparentes, productions biologiques quand cela a du
+            sens, toujours avec l’idée de limiter les intermédiaires inutiles.
           </p>
 
           <p>
-            Nous apprécions d&apos;avoir vos retours, alors n&apos;hésitez pas à
-            laisser ça et là vos avis concernant notre travail !
+            Notre carte évolue avec les saisons, les arrivages et les rencontres.
+            Nous voulons cuisiner de très bons produits, sans transformer la
+            qualité en luxe inaccessible. Pour cela, nous faisons des choix
+            simples : une carte courte, moins de gaspillage, des recettes lisibles,
+            et des prix aussi justes que possible.
           </p>
 
-          <p className="att-values-signature">Tonton.</p>
+          <p>
+            Nous ne prétendons pas avoir déjà trouvé la solution parfaite pour
+            chaque ingrédient. Certaines contraintes de transport, de conservation
+            ou de disponibilité nous obligent encore à faire des compromis. Mais
+            nous préférons les assumer clairement.
+          </p>
+
+          <p>
+            Notre première valeur, c’est la transparence. La seconde, c’est de
+            faire de notre mieux.
+          </p>
         </article>
       </section>
     </PublicSiteShell>
