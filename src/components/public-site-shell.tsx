@@ -5,7 +5,7 @@ const FACEBOOK_URL = "https://www.facebook.com/profile.php?id=61588844054910";
 
 type PublicSiteShellProps = {
   children: ReactNode;
-  currentPage?: "home" | "carte" | "legal";
+  currentPage?: "home" | "carte" | "legal" | "partners";
 };
 
 function PublicHeader({ currentPage }: Pick<PublicSiteShellProps, "currentPage">) {
@@ -52,12 +52,19 @@ function PublicHeader({ currentPage }: Pick<PublicSiteShellProps, "currentPage">
             <a href="#ou-nous-trouver">Où nous trouver</a>
             <a href="#qui-sommes-nous">Qui sommes-nous ?</a>
             <a href="#nos-valeurs">Nos valeurs</a>
+            <Link href="/nos-partenaires">Nos partenaires</Link>
           </>
         ) : isLegal ? null : (
           <>
             <Link href="/">Accueil</Link>
             <Link href="/#qui-sommes-nous">Qui sommes-nous ?</Link>
             <Link href="/#nos-valeurs">Nos valeurs</Link>
+            <Link
+              href="/nos-partenaires"
+              aria-current={currentPage === "partners" ? "page" : undefined}
+            >
+              Nos partenaires
+            </Link>
           </>
         )}
 
@@ -109,6 +116,7 @@ function PublicFooter() {
 
         <div className="att-public-footer-links">
           <strong>Liens utiles</strong>
+          <Link href="/nos-partenaires">Nos partenaires</Link>
           <Link href="/mentions-legales">Mentions légales</Link>
           <Link href="/politique-confidentialite">
             Politique de confidentialité
