@@ -1,8 +1,26 @@
+import type { Metadata } from "next";
+
 import PublicCarteBuilder from "@/components/public-carte-builder";
 import PublicSiteShell from "@/components/public-site-shell";
 import { getActivePizzas } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Carte et commande",
+  description:
+    "Consultez la carte d’À table tonton ! et préparez votre demande de pizzas à Marval, avec choix des pizzas, créneau souhaité et confirmation.",
+  alternates: {
+    canonical: "/carte",
+  },
+  openGraph: {
+    title: "Carte et commande — À table tonton !",
+    description:
+      "Choisissez vos pizzas, indiquez votre créneau souhaité et préparez votre demande simplement.",
+    url: "/carte",
+    type: "website",
+  },
+};
 
 export default async function CartePage() {
   const pizzas = await getActivePizzas();
