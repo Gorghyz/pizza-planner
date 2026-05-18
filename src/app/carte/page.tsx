@@ -7,14 +7,14 @@ import { getActivePizzas } from "@/lib/data";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Carte et commande",
+  title: "Carte et commande de pizzas à Marval",
   description:
-    "Consultez la carte d’À table tonton ! et préparez votre demande de pizzas à Marval, avec choix des pizzas, créneau souhaité et confirmation.",
+    "Retrouvez la carte d’À table tonton ! : pizzas à emporter à Marval, recettes gourmandes et originales, créneau souhaité et demande de commande simple.",
   alternates: {
     canonical: "/carte",
   },
   openGraph: {
-    title: "Carte et commande — À table tonton !",
+    title: "Carte et commande de pizzas à Marval — À table tonton !",
     description:
       "Choisissez vos pizzas, indiquez votre créneau souhaité et préparez votre demande simplement.",
     url: "/carte",
@@ -47,7 +47,7 @@ export default async function CartePage() {
             border: 0,
           }}
         >
-          La carte
+          Carte et commande de pizzas à Marval
         </h1>
 
         <img
@@ -63,6 +63,26 @@ export default async function CartePage() {
       </section>
 
       <PublicCarteBuilder pizzas={pizzas} />
+
+      <section
+        aria-label="Informations locales sur la carte"
+        style={{
+          maxWidth: "980px",
+          margin: "20px auto 52px",
+          padding: "0 20px",
+          color: "rgba(17, 17, 17, 0.62)",
+          fontSize: "0.84rem",
+          fontWeight: 700,
+          lineHeight: 1.5,
+          textAlign: "center",
+        }}
+      >
+        <p style={{ margin: 0 }}>
+          Retrouvez notre carte de pizzas à emporter à Marval, entre
+          Haute-Vienne et Dordogne, et préparez votre demande de commande
+          simplement.
+        </p>
+      </section>
     </PublicSiteShell>
   );
 }

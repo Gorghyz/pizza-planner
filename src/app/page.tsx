@@ -129,7 +129,7 @@ export default async function PublicHomePage() {
           <h1>
             Des pizzas gourmandes et généreuses,
             <br />
-            préparées avec amour du goût !
+            préparées à Marval avec amour du goût !
           </h1>
 
           <Link href="/carte" className="att-black-button">
@@ -165,10 +165,10 @@ export default async function PublicHomePage() {
         <article className="att-ink-card att-feature-card">
           <div className="att-feature-icon">⌁</div>
           <div>
-            <h2>Pizzas généreuses</h2>
+            <h2>Pizzas originales</h2>
             <p>
-              Des pizzas gourmandes et généreuses et des nouveautés chaque mois à
-              venir découvrir !
+              Des pizzas gourmandes et généreuses, des recettes originales et des
+              nouveautés chaque mois à venir découvrir !
             </p>
           </div>
         </article>
@@ -443,6 +443,28 @@ export default async function PublicHomePage() {
             faire de notre mieux.
           </p>
         </article>
+      </section>
+
+      <section
+        aria-label="Informations locales"
+        style={{
+          maxWidth: "980px",
+          margin: "12px auto 48px",
+          padding: "0 20px",
+          color: "rgba(17, 17, 17, 0.64)",
+          fontSize: "0.84rem",
+          fontWeight: 700,
+          lineHeight: 1.5,
+          textAlign: "center",
+        }}
+      >
+        <p style={{ margin: 0 }}>
+          À table tonton ! est un foodtruck de pizzas à emporter à Marval, entre
+          Haute-Vienne et Dordogne, à proximité de Cussac, Saint-Mathieu,
+          Piégut-Pluviers, Abjat-sur-Bandiat, Champniers-et-Reilhac et Nontron.
+          Nous proposons des pizzas gourmandes, généreuses et originales,
+          préparées selon les services annoncés.
+        </p>
       </section>
     </PublicSiteShell>
   );

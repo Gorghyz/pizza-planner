@@ -10,9 +10,9 @@ const CATEGORY_LABELS = {
 };
 
 export const metadata = {
-  title: "Nos partenaires — À table tonton !",
+  title: "Nos partenaires — Producteurs, artisans et distributeurs",
   description:
-    "Producteurs, artisans, distributeurs et partenaires choisis par À table tonton ! pour une cuisine généreuse, réfléchie et accessible.",
+    "Découvrez les producteurs, artisans, distributeurs et partenaires d’À table tonton ! autour de Marval, en Haute-Vienne, en Dordogne et dans les territoires voisins.",
 };
 
 export default async function NosPartenairesPage() {
@@ -67,6 +67,12 @@ export default async function NosPartenairesPage() {
           produits, aux saisons et aux conditions de production. Quand le local
           est possible, nous le choisissons. Quand il ne l’est pas, nous
           cherchons l’option la plus cohérente.
+        </p>
+
+        <p>
+          Autour de Marval, entre Haute-Vienne, Dordogne et territoires voisins,
+          nous cherchons des partenaires capables de nous aider à proposer des
+          pizzas originales, généreuses et accessibles.
         </p>
 
         <p>

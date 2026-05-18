@@ -11,6 +11,8 @@ const localBusinessJsonLd = {
   "@context": "https://schema.org",
   "@type": "FoodEstablishment",
   name: "À table tonton !",
+  description:
+    "Foodtruck de pizzas gourmandes et originales à Marval, entre Haute-Vienne et Dordogne.",
   url: siteUrl,
   image: `${siteUrl}${ogImageUrl}`,
   logo: `${siteUrl}/assets/logo-header.svg`,
@@ -23,7 +25,7 @@ const localBusinessJsonLd = {
     addressLocality: "Marval",
     addressCountry: "FR",
   },
-  servesCuisine: ["Pizza", "Cuisine artisanale"],
+  servesCuisine: ["Pizza", "Cuisine artisanale", "Street food"],
   priceRange: "€€",
   sameAs: ["https://www.facebook.com/profile.php?id=61588844054910"],
   areaServed: [
@@ -35,17 +37,37 @@ const localBusinessJsonLd = {
       "@type": "AdministrativeArea",
       name: "Haute-Vienne",
     },
+    {
+      "@type": "AdministrativeArea",
+      name: "Dordogne",
+    },
   ],
 };
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "À table tonton ! — Pizzas gourmandes et généreuses à Marval",
+    default:
+      "À table tonton ! — Foodtruck de pizzas gourmandes et originales à Marval",
     template: "%s — À table tonton !",
   },
   description:
-    "À table tonton ! prépare des pizzas gourmandes et généreuses à Marval, avec une carte courte, des produits choisis avec soin et une prise de commande simple.",
+    "Foodtruck de pizzas à emporter à Marval, entre Haute-Vienne et Dordogne. Des pizzas gourmandes, généreuses et originales, préparées avec des produits choisis avec soin.",
+  keywords: [
+    "pizza Marval",
+    "pizzeria Marval",
+    "pizza à emporter Marval",
+    "commander pizza Marval",
+    "foodtruck pizza",
+    "food truck pizza",
+    "foodtruck Marval",
+    "street food Marval",
+    "pizzas originales",
+    "pizzas artisanales",
+    "pizzas gourmandes",
+    "Haute-Vienne",
+    "Dordogne",
+  ],
   applicationName: "À table tonton !",
   authors: [{ name: "À table tonton !" }],
   creator: "À table tonton !",
@@ -58,9 +80,10 @@ export const metadata: Metadata = {
     locale: "fr_FR",
     url: siteUrl,
     siteName: "À table tonton !",
-    title: "À table tonton ! — Pizzas gourmandes et généreuses à Marval",
+    title:
+      "À table tonton ! — Foodtruck de pizzas gourmandes et originales à Marval",
     description:
-      "Pizzas gourmandes et généreuses à Marval. Carte courte, produits choisis avec soin, commande simple en ligne ou par SMS.",
+      "Pizzas à emporter à Marval, entre Haute-Vienne et Dordogne. Une carte de pizzas gourmandes, généreuses et originales.",
     images: [
       {
         url: ogImageUrl,
@@ -72,9 +95,10 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "À table tonton ! — Pizzas gourmandes et généreuses à Marval",
+    title:
+      "À table tonton ! — Foodtruck de pizzas gourmandes et originales à Marval",
     description:
-      "Pizzas gourmandes et généreuses à Marval. Carte courte, produits choisis avec soin, commande simple en ligne ou par SMS.",
+      "Pizzas à emporter à Marval, entre Haute-Vienne et Dordogne. Une carte de pizzas gourmandes, généreuses et originales.",
     images: [ogImageUrl],
   },
   robots: {
