@@ -7,39 +7,29 @@ import "./public-refinements.css";
 const siteUrl = "https://atabletonton.fr";
 const ogImageUrl = "/assets/og-image.png";
 
-const localBusinessJsonLd = {
+const websiteJsonLd = {
   "@context": "https://schema.org",
-  "@type": "FoodEstablishment",
-  name: "À table tonton !",
-  description:
-    "Foodtruck de pizzas gourmandes et originales à Marval, entre Haute-Vienne et Dordogne.",
-  url: siteUrl,
-  image: `${siteUrl}${ogImageUrl}`,
-  logo: `${siteUrl}/assets/logo-header.svg`,
-  telephone: "+33679958962",
-  email: "contact@atabletonton.fr",
-  address: {
-    "@type": "PostalAddress",
-    streetAddress: "35 La Varlanchie",
-    postalCode: "87440",
-    addressLocality: "Marval",
-    addressCountry: "FR",
-  },
-  servesCuisine: ["Pizza", "Cuisine artisanale", "Street food"],
-  priceRange: "€€",
-  sameAs: ["https://www.facebook.com/profile.php?id=61588844054910"],
-  areaServed: [
+  "@graph": [
     {
-      "@type": "Place",
-      name: "Marval",
+      "@type": "Organization",
+      "@id": `${siteUrl}/#organization`,
+      name: "À table tonton !",
+      url: siteUrl,
+      logo: `${siteUrl}/assets/logo-header.svg`,
+      image: `${siteUrl}${ogImageUrl}`,
+      email: "contact@atabletonton.fr",
+      telephone: "+33679958962",
+      sameAs: ["https://www.facebook.com/profile.php?id=61588844054910"],
     },
     {
-      "@type": "AdministrativeArea",
-      name: "Haute-Vienne",
-    },
-    {
-      "@type": "AdministrativeArea",
-      name: "Dordogne",
+      "@type": "WebSite",
+      "@id": `${siteUrl}/#website`,
+      name: "À table tonton !",
+      url: siteUrl,
+      inLanguage: "fr-FR",
+      publisher: {
+        "@id": `${siteUrl}/#organization`,
+      },
     },
   ],
 };
@@ -118,7 +108,7 @@ export default function RootLayout({
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
-            __html: JSON.stringify(localBusinessJsonLd),
+            __html: JSON.stringify(websiteJsonLd),
           }}
         />
         {children}

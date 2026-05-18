@@ -13,6 +13,17 @@ import type {
 export const dynamic = "force-dynamic";
 
 const FACEBOOK_URL = "https://www.facebook.com/profile.php?id=61588844054910";
+const SITE_URL = "https://atabletonton.fr";
+
+const SCHEMA_DAY_BY_ISO_WEEKDAY: Record<number, string> = {
+  1: "Monday",
+  2: "Tuesday",
+  3: "Wednesday",
+  4: "Thursday",
+  5: "Friday",
+  6: "Saturday",
+  7: "Sunday",
+};
 
 function buildOpenStreetMapUrl(location: BusinessLocation | null): string | null {
   if (!location) {
@@ -110,6 +121,126 @@ function buildOrderedWeekdays(todayIsoWeekday: number) {
   return [...WEEKDAYS.slice(todayIndex), ...WEEKDAYS.slice(0, todayIndex)];
 }
 
+function buildOpeningHoursSpecification(location: LocationWithHours | null) {
+  if (!location) {
+    return undefined;
+  }
+
+  const openingHours = location.hours
+    .filter((hour) => hour.isOpen && hour.opensAt && hour.closesAt)
+    .map((hour) => ({
+      "@type": "OpeningHoursSpecification",
+      dayOfWeek: SCHEMA_DAY_BY_ISO_WEEKDAY[hour.isoWeekday],
+      opens: hour.opensAt,
+      closes: hour.closesAt,
+    }))
+    .filter((hour) => Boolean(hour.dayOfWeek));
+
+  return openingHours.length > 0 ? openingHours : undefined;
+}
+
+function buildAreaServed(activeLocations: LocationWithHours[]) {
+  const baseAreas = [
+    "Marval",
+    "Cussac",
+    "Saint-Mathieu",
+    "Piégut-Pluviers",
+    "Abjat-sur-Bandiat",
+    "Champniers-et-Reilhac",
+    "Nontron",
+    "Haute-Vienne",
+    "Dordogne",
+  ];
+
+  const databaseAreas = activeLocations.flatMap((location) => [
+    location.city,
+    location.name,
+  ]);
+
+  const names = Array.from(
+    new Set(
+      [...baseAreas, ...databaseAreas]
+        .map((name) => name.trim())
+        .filter(Boolean),
+    ),
+  );
+
+  return names.map((name) => ({
+    "@type":
+      name === "Haute-Vienne" || name === "Dordogne"
+        ? "AdministrativeArea"
+        : "Place",
+    name,
+  }));
+}
+
+function buildCurrentServicePlace(location: BusinessLocation | null) {
+  if (!location) {
+    return undefined;
+  }
+
+  const hasAddress = Boolean(location.address.trim() || location.city.trim());
+  const hasGeo =
+    typeof location.latitude === "number" &&
+    typeof location.longitude === "number";
+
+  return {
+    "@type": "Place",
+    name: [location.name, location.city].filter(Boolean).join(" — "),
+    address: hasAddress
+      ? {
+          "@type": "PostalAddress",
+          streetAddress: location.address || undefined,
+          addressLocality: location.city || undefined,
+          addressCountry: "FR",
+        }
+      : undefined,
+    geo: hasGeo
+      ? {
+          "@type": "GeoCoordinates",
+          latitude: location.latitude,
+          longitude: location.longitude,
+        }
+      : undefined,
+  };
+}
+
+function buildHomeStructuredData(
+  todayService: TodayServiceSettings,
+  currentLocation: LocationWithHours | null,
+  activeLocations: LocationWithHours[],
+  mapUrl: string | null,
+) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "FoodEstablishment",
+    "@id": `${SITE_URL}/#atabletonton`,
+    name: "À table tonton !",
+    description:
+      "Foodtruck de pizzas gourmandes et originales à Marval, entre Haute-Vienne et Dordogne.",
+    url: SITE_URL,
+    image: `${SITE_URL}/assets/og-image.png`,
+    logo: `${SITE_URL}/assets/logo-header.svg`,
+    telephone: "+33679958962",
+    email: "contact@atabletonton.fr",
+    address: {
+      "@type": "PostalAddress",
+      streetAddress: "35 La Varlanchie",
+      postalCode: "87440",
+      addressLocality: "Marval",
+      addressCountry: "FR",
+    },
+    servesCuisine: ["Pizza", "Cuisine artisanale", "Street food"],
+    priceRange: "€€",
+    sameAs: [FACEBOOK_URL],
+    hasMenu: `${SITE_URL}/carte`,
+    areaServed: buildAreaServed(activeLocations),
+    openingHoursSpecification: buildOpeningHoursSpecification(currentLocation),
+    hasMap: mapUrl || undefined,
+    location: buildCurrentServicePlace(todayService.location),
+  };
+}
+
 export default async function PublicHomePage() {
   const [locations, todayService] = await Promise.all([
     getPublicLocationsWithHours(),
@@ -121,9 +252,22 @@ export default async function PublicHomePage() {
   const mapUrl = buildOpenStreetMapUrl(todayService.location);
   const mapEmbedUrl = buildOpenStreetMapEmbedUrl(todayService.location);
   const orderedWeekdays = buildOrderedWeekdays(todayService.isoWeekday);
+  const homeStructuredData = buildHomeStructuredData(
+    todayService,
+    currentLocation,
+    activeLocations,
+    mapUrl,
+  );
 
   return (
     <PublicSiteShell currentPage="home">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(homeStructuredData),
+        }}
+      />
+
       <section className="att-home-hero">
         <div className="att-home-hero-copy">
           <h1>

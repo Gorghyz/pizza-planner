@@ -3,8 +3,11 @@ import type { Metadata } from "next";
 import PublicCarteBuilder from "@/components/public-carte-builder";
 import PublicSiteShell from "@/components/public-site-shell";
 import { getActivePizzas } from "@/lib/data";
+import type { Pizza } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+
+const SITE_URL = "https://atabletonton.fr";
 
 export const metadata: Metadata = {
   title: "Carte et commande de pizzas à Marval",
@@ -22,11 +25,52 @@ export const metadata: Metadata = {
   },
 };
 
+function buildMenuStructuredData(pizzas: Pizza[]) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Menu",
+    "@id": `${SITE_URL}/carte#menu`,
+    name: "Carte de pizzas à Marval — À table tonton !",
+    url: `${SITE_URL}/carte`,
+    provider: {
+      "@type": "FoodEstablishment",
+      "@id": `${SITE_URL}/#atabletonton`,
+      name: "À table tonton !",
+    },
+    hasMenuSection: [
+      {
+        "@type": "MenuSection",
+        name: "Pizzas",
+        hasMenuItem: pizzas.map((pizza) => ({
+          "@type": "MenuItem",
+          name: pizza.name,
+          description: pizza.description || pizza.ingredients || undefined,
+          image: pizza.photoPath ? `${SITE_URL}${pizza.photoPath}` : undefined,
+          offers: {
+            "@type": "Offer",
+            price: (pizza.priceCents / 100).toFixed(2),
+            priceCurrency: "EUR",
+            availability: "https://schema.org/InStock",
+          },
+        })),
+      },
+    ],
+  };
+}
+
 export default async function CartePage() {
   const pizzas = await getActivePizzas();
+  const menuStructuredData = buildMenuStructuredData(pizzas);
 
   return (
     <PublicSiteShell currentPage="carte">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(menuStructuredData),
+        }}
+      />
+
       <section
         aria-labelledby="carte-title"
         style={{
