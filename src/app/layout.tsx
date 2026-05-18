@@ -5,13 +5,14 @@ import "./public.css";
 import "./public-refinements.css";
 
 const siteUrl = "https://atabletonton.fr";
+const ogImageUrl = "/assets/og-image.png";
 
 const localBusinessJsonLd = {
   "@context": "https://schema.org",
   "@type": "FoodEstablishment",
   name: "À table tonton !",
   url: siteUrl,
-  image: `${siteUrl}/assets/logo-header.svg`,
+  image: `${siteUrl}${ogImageUrl}`,
   logo: `${siteUrl}/assets/logo-header.svg`,
   telephone: "+33679958962",
   email: "contact@atabletonton.fr",
@@ -62,8 +63,10 @@ export const metadata: Metadata = {
       "Pizzas gourmandes et généreuses à Marval. Carte courte, produits choisis avec soin, commande simple en ligne ou par SMS.",
     images: [
       {
-        url: "/assets/logo-header.svg",
-        alt: "À table tonton !",
+        url: ogImageUrl,
+        width: 1200,
+        height: 630,
+        alt: "À table tonton ! — Pizzas gourmandes et généreuses à Marval",
       },
     ],
   },
@@ -72,7 +75,7 @@ export const metadata: Metadata = {
     title: "À table tonton ! — Pizzas gourmandes et généreuses à Marval",
     description:
       "Pizzas gourmandes et généreuses à Marval. Carte courte, produits choisis avec soin, commande simple en ligne ou par SMS.",
-    images: ["/assets/logo-header.svg"],
+    images: [ogImageUrl],
   },
   robots: {
     index: true,
