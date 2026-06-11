@@ -295,8 +295,17 @@ export default async function PublicHomePage() {
         className="att-home-feature-grid att-home-feature-grid-two"
         aria-label="Informations principales"
       >
-        <article className="att-ink-card att-feature-card">
-          <div className="att-feature-icon">◉</div>
+        <Link
+          href="/carte"
+          className="att-ink-card att-feature-card att-feature-card-link"
+        >
+          <div className="att-feature-icon att-feature-icon-image">
+            <img
+              src="/assets/icon-order.svg"
+              alt=""
+              aria-hidden="true"
+            />
+          </div>
           <div>
             <h2>Commander facilement</h2>
             <p>
@@ -304,10 +313,19 @@ export default async function PublicHomePage() {
               sur navigateur.
             </p>
           </div>
-        </article>
+        </Link>
 
-        <article className="att-ink-card att-feature-card">
-          <div className="att-feature-icon">⌁</div>
+        <Link
+          href="/carte"
+          className="att-ink-card att-feature-card att-feature-card-link"
+        >
+          <div className="att-feature-icon att-feature-icon-image">
+            <img
+              src="/assets/icon-original-pizza.svg"
+              alt=""
+              aria-hidden="true"
+            />
+          </div>
           <div>
             <h2>Pizzas originales</h2>
             <p>
@@ -315,7 +333,7 @@ export default async function PublicHomePage() {
               nouveautés chaque mois à venir découvrir !
             </p>
           </div>
-        </article>
+        </Link>
       </section>
 
       <section id="ou-nous-trouver" className="att-home-section">
@@ -324,7 +342,13 @@ export default async function PublicHomePage() {
         <div className="att-location-layout">
           <div className="att-location-cards">
             <article className="att-ink-card att-small-info-card">
-              <div className="att-info-icon">●</div>
+              <div className="att-info-icon att-info-icon-image">
+                <img
+                  src="/assets/icon-location-pin.svg"
+                  alt=""
+                  aria-hidden="true"
+                />
+              </div>
               <div>
                 <h3>Services du soir</h3>
                 <p>{formatServicePlace(todayService)}</p>
@@ -332,7 +356,7 @@ export default async function PublicHomePage() {
             </article>
 
             <article className="att-ink-card att-small-info-card att-hours-card">
-              <div className="att-info-icon">◷</div>
+              <div className="att-info-icon">▷</div>
               <div>
                 <h3>Horaires</h3>
 
@@ -360,10 +384,14 @@ export default async function PublicHomePage() {
                 href={FACEBOOK_URL}
                 target="_blank"
                 rel="noreferrer"
-                className="att-info-icon att-info-facebook"
+                className="att-info-icon att-info-facebook att-info-facebook-image"
                 aria-label="Suivez-nous sur Facebook"
               >
-                f
+                <img
+                  src="/assets/icon-facebook.svg"
+                  alt=""
+                  aria-hidden="true"
+                />
               </a>
 
               <div>
