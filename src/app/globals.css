@@ -747,6 +747,87 @@ button:disabled {
   margin-bottom: 10px;
 }
 
+.att-facebook-icon-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  border-radius: 999px;
+  color: inherit;
+  background: transparent;
+  transition:
+    transform 0.12s ease,
+    opacity 0.12s ease;
+}
+
+.att-facebook-icon-link:hover {
+  transform: translateY(-1px);
+  opacity: 0.78;
+}
+
+.att-facebook-icon-link:focus-visible {
+  outline: 3px solid rgba(143, 45, 20, 0.3);
+  outline-offset: 3px;
+}
+
+.att-facebook-icon-link img {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+}
+
+.att-public-footer-facebook-icon {
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+}
+
+.att-public-footer-facebook-icon img {
+  width: 28px;
+  height: 28px;
+}
+
+.att-feature-card-link {
+  display: flex;
+  color: inherit;
+  cursor: pointer;
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease,
+    border-color 0.12s ease;
+}
+
+.att-feature-card-link:hover {
+  transform: translateY(-2px);
+  border-color: rgba(28, 28, 28, 0.28);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+.att-feature-card-link:focus-visible {
+  outline: 3px solid rgba(143, 45, 20, 0.3);
+  outline-offset: 4px;
+}
+
+.att-feature-icon-image,
+.att-info-icon-image,
+.att-info-facebook-image {
+  overflow: hidden;
+}
+
+.att-feature-icon-image img,
+.att-info-icon-image img,
+.att-info-facebook-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.att-info-facebook-image {
+  background: transparent;
+}
+
 @media (max-width: 960px) {
   .layout-grid,
   .admin-manager-grid,

@@ -72,10 +72,14 @@ function PublicHeader({ currentPage }: Pick<PublicSiteShellProps, "currentPage">
           href={FACEBOOK_URL}
           target="_blank"
           rel="noreferrer"
-          className="att-facebook-dot"
+          className="att-facebook-icon-link"
           aria-label="Suivez-nous sur Facebook"
         >
-          f
+          <img
+            src="/assets/icon-facebook.svg"
+            alt=""
+            aria-hidden="true"
+          />
         </a>
       </nav>
     </header>
@@ -104,8 +108,11 @@ function PublicFooter() {
           rel="noreferrer"
           className="att-public-footer-social"
         >
-          <span className="att-facebook-dot" aria-hidden="true">
-            f
+          <span className="att-facebook-icon-link att-public-footer-facebook-icon" aria-hidden="true">
+            <img
+              src="/assets/icon-facebook.svg"
+              alt=""
+            />
           </span>
           <span>
             <strong>Suivez-nous</strong>
