@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
-import { createOrder, getPizzasByIds, getTodayOccupancy } from "@/lib/data";
+
 import { SERVICE_OPENING_TIME } from "@/lib/config";
+import { createOrder, getPizzasByIds, getTodayOccupancy } from "@/lib/data";
+import { notifyOrderCreated } from "@/lib/notifications";
 import { suggestSlots } from "@/lib/scheduler";
 import type { DraftItem } from "@/lib/types";
 
@@ -19,7 +21,6 @@ function normalizeItems(raw: unknown): DraftItem[] {
     }
 
     const candidate = entry as Record<string, unknown>;
-
     const pizzaId = Number(candidate.pizzaId);
     const quantity = Number(candidate.quantity);
     const comment =
@@ -108,7 +109,20 @@ export async function POST(request: Request) {
       return sum + pizza.prepMinutes * item.quantity;
     }, 0);
 
+    const totalPizzas = items.reduce((sum, item) => sum + item.quantity, 0);
+
+    const totalPriceCents = items.reduce((sum, item) => {
+      const pizza = pizzaMap.get(item.pizzaId);
+
+      if (!pizza) {
+        throw new Error(`Pizza introuvable : ${item.pizzaId}`);
+      }
+
+      return sum + pizza.priceCents * item.quantity;
+    }, 0);
+
     const orders = await getTodayOccupancy();
+
     const slots = suggestSlots({
       desiredTime,
       totalMinutes,
@@ -118,8 +132,7 @@ export async function POST(request: Request) {
     if (!slots.includes(promisedTime)) {
       return NextResponse.json(
         {
-          error:
-            "Le créneau choisi n'est plus disponible. Recalcule les créneaux.",
+          error: "Le créneau choisi n'est plus disponible. Recalcule les créneaux.",
         },
         { status: 409 },
       );
@@ -145,10 +158,14 @@ export async function POST(request: Request) {
       }),
     });
 
-    return NextResponse.json({
-      ok: true,
+    await notifyOrderCreated({
       orderId,
+      totalPizzas,
+      totalPriceCents,
+      promisedTime,
     });
+
+    return NextResponse.json({ ok: true, orderId });
   } catch (error) {
     console.error(error);
 

@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
+
 import {
   createCustomerRequest,
   getPizzasByIds,
   getTodayOccupancy,
   getTodayServiceSettings,
 } from "@/lib/data";
+import { notifyCustomerRequestCreated } from "@/lib/notifications";
 import { suggestSlots } from "@/lib/scheduler";
 import type { CustomerRequestItem, DraftItem } from "@/lib/types";
 
@@ -154,8 +156,7 @@ export async function POST(request: Request) {
     if (!slots.includes(selectedSlot)) {
       return NextResponse.json(
         {
-          error:
-            "Le créneau choisi n'est plus disponible. Recalcule les créneaux.",
+          error: "Le créneau choisi n'est plus disponible. Recalcule les créneaux.",
         },
         { status: 409 },
       );
@@ -202,6 +203,13 @@ export async function POST(request: Request) {
       totalPriceCents,
       totalMinutes,
       source: "desktop",
+    });
+
+    await notifyCustomerRequestCreated({
+      requestId: customerRequest.id,
+      totalPizzas,
+      totalPriceCents,
+      selectedSlot,
     });
 
     return NextResponse.json({
