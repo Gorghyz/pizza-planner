@@ -24,6 +24,9 @@ import type {
   TodayServiceSettings,
 } from "@/lib/types";
 
+const PARIS_TIME_ZONE_SQL = "Europe/Paris";
+const PARIS_CURRENT_DATE_SQL = `(NOW() AT TIME ZONE '${PARIS_TIME_ZONE_SQL}')::date`;
+
 const pizzaSelectFields = `
   id,
   name,
@@ -51,7 +54,7 @@ const customerRequestSelectFields = `
   total_minutes AS "totalMinutes",
   source,
   status,
-  TO_CHAR(created_at, 'YYYY-MM-DD HH24:MI') AS "createdAt"
+  TO_CHAR(created_at AT TIME ZONE '${PARIS_TIME_ZONE_SQL}', 'DD/MM/YYYY HH24:MI') AS "createdAt"
 `;
 
 const businessLocationSelectFields = `
@@ -175,6 +178,7 @@ function attachHoursToLocations(
 
   for (const hour of hours) {
     const current = hoursByLocationId.get(hour.locationId) ?? [];
+
     current.push(hour);
     hoursByLocationId.set(hour.locationId, current);
   }
@@ -190,9 +194,8 @@ function attachHoursToLocations(
 }
 
 export async function getActivePizzas(): Promise<Pizza[]> {
-  const result = await query<Pizza>(`
-    SELECT
-      ${pizzaSelectFields}
+  const result = await query(`
+    SELECT ${pizzaSelectFields}
     FROM pizzas
     WHERE active = TRUE
     ORDER BY display_order, name;
@@ -202,9 +205,8 @@ export async function getActivePizzas(): Promise<Pizza[]> {
 }
 
 export async function getAllPizzasForAdmin(): Promise<Pizza[]> {
-  const result = await query<Pizza>(`
-    SELECT
-      ${pizzaSelectFields}
+  const result = await query(`
+    SELECT ${pizzaSelectFields}
     FROM pizzas
     ORDER BY active DESC, display_order, name;
   `);
@@ -217,10 +219,9 @@ export async function getPizzasByIds(ids: number[]): Promise<Pizza[]> {
     return [];
   }
 
-  const result = await query<Pizza>(
+  const result = await query(
     `
-      SELECT
-        ${pizzaSelectFields}
+      SELECT ${pizzaSelectFields}
       FROM pizzas
       WHERE id = ANY($1::int[])
       ORDER BY display_order, name;
@@ -232,13 +233,13 @@ export async function getPizzasByIds(ids: number[]): Promise<Pizza[]> {
 }
 
 export async function getTodayOccupancy(): Promise<OccupancyOrder[]> {
-  const result = await query<OccupancyOrder>(`
+  const result = await query(`
     SELECT
       id,
       TO_CHAR(promised_time, 'HH24:MI') AS "promisedTime",
       total_minutes AS "totalMinutes"
     FROM orders
-    WHERE service_date = CURRENT_DATE
+    WHERE service_date = ${PARIS_CURRENT_DATE_SQL}
     ORDER BY promised_time, id;
   `);
 
@@ -246,7 +247,7 @@ export async function getTodayOccupancy(): Promise<OccupancyOrder[]> {
 }
 
 export async function getTodayOrders(): Promise<TodayOrder[]> {
-  const result = await query<TodayOrder>(`
+  const result = await query(`
     SELECT
       o.id,
       o.customer_name AS "customerName",
@@ -261,12 +262,13 @@ export async function getTodayOrders(): Promise<TodayOrder[]> {
             THEN oi.quantity || ' x ' || p.name || ' (' || oi.comment || ')'
           ELSE oi.quantity || ' x ' || p.name
         END,
-        ', ' ORDER BY p.display_order, p.name
+        ', '
+        ORDER BY p.display_order, p.name
       ) AS "itemSummary"
     FROM orders o
     JOIN order_items oi ON oi.order_id = o.id
     JOIN pizzas p ON p.id = oi.pizza_id
-    WHERE o.service_date = CURRENT_DATE
+    WHERE o.service_date = ${PARIS_CURRENT_DATE_SQL}
     GROUP BY
       o.id,
       o.customer_name,
@@ -282,9 +284,8 @@ export async function getTodayOrders(): Promise<TodayOrder[]> {
 }
 
 export async function getCustomerRequests(): Promise<CustomerRequest[]> {
-  const result = await query<CustomerRequest>(`
-    SELECT
-      ${customerRequestSelectFields}
+  const result = await query(`
+    SELECT ${customerRequestSelectFields}
     FROM customer_requests
     ORDER BY
       CASE status
@@ -301,7 +302,7 @@ export async function getCustomerRequests(): Promise<CustomerRequest[]> {
 export async function getCustomerRequestByIdForConversion(
   requestId: number,
 ): Promise<CustomerRequestForConversion | null> {
-  const result = await query<CustomerRequestForConversion>(
+  const result = await query(
     `
       SELECT
         id,
@@ -327,9 +328,8 @@ export async function getCustomerRequestByIdForConversion(
 }
 
 export async function getBusinessLocations(): Promise<BusinessLocation[]> {
-  const result = await query<BusinessLocation>(`
-    SELECT
-      ${businessLocationSelectFields}
+  const result = await query(`
+    SELECT ${businessLocationSelectFields}
     FROM business_locations
     ORDER BY is_default DESC, is_active DESC, display_order, name;
   `);
@@ -340,10 +340,9 @@ export async function getBusinessLocations(): Promise<BusinessLocation[]> {
 export async function getOpeningHoursForLocation(
   locationId: number,
 ): Promise<OpeningHour[]> {
-  const result = await query<OpeningHour>(
+  const result = await query(
     `
-      SELECT
-        ${openingHourSelectFields}
+      SELECT ${openingHourSelectFields}
       FROM business_opening_hours
       WHERE location_id = $1
       ORDER BY iso_weekday;
@@ -354,12 +353,13 @@ export async function getOpeningHoursForLocation(
   return sortOpeningHours(result.rows);
 }
 
-export async function getBusinessLocationsWithHours(): Promise<LocationWithHours[]> {
+export async function getBusinessLocationsWithHours(): Promise<
+  LocationWithHours[]
+> {
   const [locations, hours] = await Promise.all([
     getBusinessLocations(),
-    query<OpeningHour>(`
-      SELECT
-        ${openingHourSelectFields}
+    query(`
+      SELECT ${openingHourSelectFields}
       FROM business_opening_hours
       ORDER BY location_id, iso_weekday;
     `),
@@ -368,18 +368,18 @@ export async function getBusinessLocationsWithHours(): Promise<LocationWithHours
   return attachHoursToLocations(locations, hours.rows);
 }
 
-export async function getPublicLocationsWithHours(): Promise<LocationWithHours[]> {
+export async function getPublicLocationsWithHours(): Promise<
+  LocationWithHours[]
+> {
   const [locations, hours] = await Promise.all([
-    query<BusinessLocation>(`
-      SELECT
-        ${businessLocationSelectFields}
+    query(`
+      SELECT ${businessLocationSelectFields}
       FROM business_locations
       WHERE is_active = TRUE
       ORDER BY is_default DESC, display_order, name;
     `),
-    query<OpeningHour>(`
-      SELECT
-        ${openingHourSelectFields}
+    query(`
+      SELECT ${openingHourSelectFields}
       FROM business_opening_hours
       ORDER BY location_id, iso_weekday;
     `),
@@ -395,7 +395,7 @@ export async function getTodayServiceSettings(): Promise<TodayServiceSettings> {
 }
 
 export async function createPizza(input: PizzaWriteInput): Promise<Pizza> {
-  const result = await query<Pizza>(
+  const result = await query(
     `
       WITH next_order AS (
         SELECT COALESCE(MAX(display_order), 0) + 10 AS value
@@ -425,8 +425,7 @@ export async function createPizza(input: PizzaWriteInput): Promise<Pizza> {
         $8,
         $9
       FROM next_order
-      RETURNING
-        ${pizzaSelectFields};
+      RETURNING ${pizzaSelectFields};
     `,
     [
       input.name,
@@ -448,7 +447,7 @@ export async function updatePizza(
   pizzaId: number,
   input: PizzaWriteInput,
 ): Promise<Pizza | null> {
-  const result = await query<Pizza>(
+  const result = await query(
     `
       UPDATE pizzas
       SET
@@ -462,8 +461,7 @@ export async function updatePizza(
         price_cents = $9,
         seasonality = $10
       WHERE id = $1
-      RETURNING
-        ${pizzaSelectFields};
+      RETURNING ${pizzaSelectFields};
     `,
     [
       pizzaId,
@@ -482,14 +480,15 @@ export async function updatePizza(
   return result.rows[0] ?? null;
 }
 
-export async function togglePizzaActive(pizzaId: number): Promise<Pizza | null> {
-  const result = await query<Pizza>(
+export async function togglePizzaActive(
+  pizzaId: number,
+): Promise<Pizza | null> {
+  const result = await query(
     `
       UPDATE pizzas
       SET active = NOT active
       WHERE id = $1
-      RETURNING
-        ${pizzaSelectFields};
+      RETURNING ${pizzaSelectFields};
     `,
     [pizzaId],
   );
@@ -533,8 +532,7 @@ export async function createBusinessLocation(
           $8,
           next_order.value
         FROM next_order
-        RETURNING
-          ${businessLocationSelectFields};
+        RETURNING ${businessLocationSelectFields};
       `,
       [
         input.name,
@@ -630,8 +628,7 @@ export async function updateBusinessLocation(
           is_active = $8,
           is_default = $9
         WHERE id = $1
-        RETURNING
-          ${businessLocationSelectFields};
+        RETURNING ${businessLocationSelectFields};
       `,
       [
         locationId,
@@ -713,7 +710,7 @@ export async function saveOpeningHours(
 export async function createCustomerRequest(
   input: CreateCustomerRequestInput,
 ): Promise<CustomerRequest> {
-  const result = await query<CustomerRequest>(
+  const result = await query(
     `
       INSERT INTO customer_requests (
         customer_name,
@@ -741,8 +738,7 @@ export async function createCustomerRequest(
         $10,
         $11
       )
-      RETURNING
-        ${customerRequestSelectFields};
+      RETURNING ${customerRequestSelectFields};
     `,
     [
       input.customerName,
@@ -811,7 +807,7 @@ export async function createOrder(input: CreateOrderInput): Promise<number> {
           notes
         )
         VALUES (
-          CURRENT_DATE,
+          ${PARIS_CURRENT_DATE_SQL},
           $1,
           $2::time,
           $3::time,
