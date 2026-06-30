@@ -3,6 +3,7 @@ import Link from "next/link";
 import PublicSiteShell from "@/components/public-site-shell";
 import { WEEKDAYS } from "@/lib/business-settings";
 import { getPublicLocationsWithHours, getTodayServiceSettings } from "@/lib/data";
+import { getActiveHomeImage } from "@/lib/home-images";
 import type {
   BusinessLocation,
   LocationWithHours,
@@ -210,6 +211,7 @@ function buildHomeStructuredData(
   currentLocation: LocationWithHours | null,
   activeLocations: LocationWithHours[],
   mapUrl: string | null,
+  homeImagePath: string | null,
 ) {
   return {
     "@context": "https://schema.org",
@@ -219,7 +221,9 @@ function buildHomeStructuredData(
     description:
       "Foodtruck de pizzas gourmandes et originales à Marval, entre Haute-Vienne et Dordogne.",
     url: SITE_URL,
-    image: `${SITE_URL}/assets/og-image.png`,
+    image: homeImagePath
+      ? `${SITE_URL}${homeImagePath}`
+      : `${SITE_URL}/assets/og-image.png`,
     logo: `${SITE_URL}/assets/logo-header.svg`,
     telephone: "+33679958962",
     email: "contact@atabletonton.fr",
@@ -242,9 +246,10 @@ function buildHomeStructuredData(
 }
 
 export default async function PublicHomePage() {
-  const [locations, todayService] = await Promise.all([
+  const [locations, todayService, activeHomeImage] = await Promise.all([
     getPublicLocationsWithHours(),
     getTodayServiceSettings(),
+    getActiveHomeImage(),
   ]);
 
   const activeLocations = getActiveLocations(locations);
@@ -257,7 +262,15 @@ export default async function PublicHomePage() {
     currentLocation,
     activeLocations,
     mapUrl,
+    activeHomeImage?.imagePath ?? null,
   );
+
+  const heroImageSrc = activeHomeImage?.imagePath || "/assets/hero-desktop.svg";
+  const heroImageAlt =
+    activeHomeImage?.altText ||
+    activeHomeImage?.title ||
+    "Pizzas du moment À table tonton !";
+  const hasActiveHomeImage = Boolean(activeHomeImage);
 
   return (
     <PublicSiteShell currentPage="home">
@@ -268,75 +281,185 @@ export default async function PublicHomePage() {
         }}
       />
 
-      <section className="att-home-hero">
-        <div className="att-home-hero-copy">
-          <h1>
+      <section
+        className="att-home-hero"
+        style={{
+          display: "block",
+          maxWidth: "1320px",
+          minHeight: "auto",
+          margin: "28px auto 0",
+          padding: "0 24px",
+        }}
+      >
+        <div
+          className="att-home-hero-copy"
+          style={{
+            maxWidth: "100%",
+            marginBottom: "24px",
+            textAlign: "center",
+          }}
+        >
+          <h1
+            style={{
+              maxWidth: "1180px",
+              margin: "0 auto",
+              fontSize: "clamp(1.7rem, 2.8vw, 2.6rem)",
+              lineHeight: 1.08,
+            }}
+          >
             Des pizzas gourmandes et généreuses,
             <br />
             préparées à Marval avec amour du goût !
           </h1>
+        </div>
 
+        <div
+          className="att-home-hero-image-wrap"
+          style={{
+            width: "100%",
+            maxWidth: "100%",
+            flex: "none",
+            margin: "0 auto",
+          }}
+        >
+          {hasActiveHomeImage ? (
+            <Link
+              href="/carte"
+              aria-label="Voir la carte et commander"
+              style={{
+                display: "block",
+                width: "100%",
+                overflow: "hidden",
+                border: "2px solid #1c1c1c",
+                borderRadius: "18px",
+                background: "#fff",
+                boxShadow: "0 10px 28px rgba(0, 0, 0, 0.10)",
+              }}
+            >
+              <img
+                src={heroImageSrc}
+                alt={heroImageAlt}
+                className="att-home-hero-image"
+                style={{
+                  width: "100%",
+                  aspectRatio: "3 / 1",
+                  objectFit: "cover",
+                  display: "block",
+                }}
+              />
+            </Link>
+          ) : (
+            <img
+              src={heroImageSrc}
+              alt=""
+              className="att-home-hero-image"
+              aria-hidden="true"
+            />
+          )}
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            marginTop: "16px",
+          }}
+        >
           <Link href="/carte" className="att-black-button">
             Voir la carte / Commander
           </Link>
         </div>
-
-        <div className="att-home-hero-image-wrap">
-          <img
-            src="/assets/hero-desktop.svg"
-            alt=""
-            className="att-home-hero-image"
-            aria-hidden="true"
-          />
-        </div>
       </section>
+
+      {hasActiveHomeImage ? (
+        <section
+          aria-label="Illustration À table tonton !"
+          style={{
+            maxWidth: "760px",
+            margin: "18px auto 22px",
+            padding: "0 24px",
+          }}
+        >
+          <Link
+            href="/carte"
+            aria-label="Voir la carte et commander"
+            style={{
+              display: "block",
+              overflow: "hidden",
+              border: "2px solid #1c1c1c",
+              borderRadius: "18px",
+              background: "#fff",
+              boxShadow: "0 6px 18px rgba(0, 0, 0, 0.06)",
+              padding: "8px 14px",
+            }}
+          >
+            <img
+              src="/assets/hero-desktop.svg"
+              alt=""
+              aria-hidden="true"
+              style={{
+                width: "100%",
+                maxHeight: "150px",
+                objectFit: "contain",
+                display: "block",
+              }}
+            />
+          </Link>
+        </section>
+      ) : (
+        <section
+          className="att-home-feature-grid att-home-feature-grid-two"
+          aria-label="Informations principales"
+        >
+          <Link
+            href="/carte"
+            className="att-ink-card att-feature-card att-feature-card-link"
+          >
+            <div className="att-feature-icon att-feature-icon-image">
+              <img
+                src="/assets/icon-order.svg"
+                alt=""
+                aria-hidden="true"
+              />
+            </div>
+            <div>
+              <h2>Commander facilement</h2>
+              <p>
+                Préparez votre demande facilement via notre page dédiée, par SMS ou
+                sur navigateur.
+              </p>
+            </div>
+          </Link>
+
+          <Link
+            href="/carte"
+            className="att-ink-card att-feature-card att-feature-card-link"
+          >
+            <div className="att-feature-icon att-feature-icon-image">
+              <img
+                src="/assets/icon-original-pizza.svg"
+                alt=""
+                aria-hidden="true"
+              />
+            </div>
+            <div>
+              <h2>Pizzas originales</h2>
+              <p>
+                Des pizzas gourmandes et généreuses, des recettes originales et des
+                nouveautés chaque mois à venir découvrir !
+              </p>
+            </div>
+          </Link>
+        </section>
+      )}
 
       <section
-        className="att-home-feature-grid att-home-feature-grid-two"
-        aria-label="Informations principales"
+        id="ou-nous-trouver"
+        className="att-home-section"
+        style={{
+          marginTop: "18px",
+        }}
       >
-        <Link
-          href="/carte"
-          className="att-ink-card att-feature-card att-feature-card-link"
-        >
-          <div className="att-feature-icon att-feature-icon-image">
-            <img
-              src="/assets/icon-order.svg"
-              alt=""
-              aria-hidden="true"
-            />
-          </div>
-          <div>
-            <h2>Commander facilement</h2>
-            <p>
-              Préparez votre demande facilement via notre page dédiée, par SMS ou
-              sur navigateur.
-            </p>
-          </div>
-        </Link>
-
-        <Link
-          href="/carte"
-          className="att-ink-card att-feature-card att-feature-card-link"
-        >
-          <div className="att-feature-icon att-feature-icon-image">
-            <img
-              src="/assets/icon-original-pizza.svg"
-              alt=""
-              aria-hidden="true"
-            />
-          </div>
-          <div>
-            <h2>Pizzas originales</h2>
-            <p>
-              Des pizzas gourmandes et généreuses, des recettes originales et des
-              nouveautés chaque mois à venir découvrir !
-            </p>
-          </div>
-        </Link>
-      </section>
-
-      <section id="ou-nous-trouver" className="att-home-section">
         <h2 className="att-section-title">Où nous trouver</h2>
 
         <div className="att-location-layout">
@@ -467,7 +590,12 @@ export default async function PublicHomePage() {
       </section>
 
       <section id="qui-sommes-nous" className="att-home-section att-about-section">
-        <div className="att-about-image-wrap">
+        <div
+          className="att-about-image-wrap"
+          style={{
+            alignSelf: "flex-start",
+          }}
+        >
           <img
             src="/assets/about-logo-large.svg"
             alt="À table tonton !"

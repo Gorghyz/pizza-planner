@@ -30,6 +30,12 @@ export default async function BusinessAdminPage() {
           <Link href="/business/cuisine" className="link-button secondary-link">
             Vue cuisine
           </Link>
+          <Link
+            href="/business/admin/image-accueil"
+            className="link-button secondary-link"
+          >
+            Image d&apos;accueil
+          </Link>
           <BusinessLogoutButton />
         </div>
       </header>

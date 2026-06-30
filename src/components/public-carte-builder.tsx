@@ -81,6 +81,40 @@ function sortSlotsChronologically(slots: string[]): string[] {
   });
 }
 
+function findClosestSlot(slots: string[], desiredTime: string): string {
+  const sortedSlots = sortSlotsChronologically(slots);
+
+  if (sortedSlots.length === 0) {
+    return "";
+  }
+
+  const desiredMinutes = parseSlotMinutes(desiredTime);
+
+  if (desiredMinutes === Number.MAX_SAFE_INTEGER) {
+    return sortedSlots[0];
+  }
+
+  let closestSlot = sortedSlots[0];
+  let closestDistance = Math.abs(parseSlotMinutes(closestSlot) - desiredMinutes);
+
+  for (const slot of sortedSlots) {
+    const slotMinutes = parseSlotMinutes(slot);
+
+    if (slotMinutes === desiredMinutes) {
+      return slot;
+    }
+
+    const distance = Math.abs(slotMinutes - desiredMinutes);
+
+    if (distance < closestDistance) {
+      closestSlot = slot;
+      closestDistance = distance;
+    }
+  }
+
+  return closestSlot;
+}
+
 async function readJsonResponse<T>(response: Response): Promise<T> {
   const raw = await response.text();
 
@@ -94,12 +128,12 @@ async function readJsonResponse<T>(response: Response): Promise<T> {
 function groupPizzas(pizzas: Pizza[]): PizzaGroup[] {
   const seasonPizzas = pizzas.filter((pizza) => {
     const seasonality = pizza.seasonality.toLowerCase();
+
     return seasonality.includes("saison") || seasonality.includes("season");
   });
 
   const seasonIds = new Set(seasonPizzas.map((pizza) => pizza.id));
   const classicPizzas = pizzas.filter((pizza) => !seasonIds.has(pizza.id));
-
   const groups: PizzaGroup[] = [];
 
   if (classicPizzas.length > 0) {
@@ -128,17 +162,21 @@ function groupPizzas(pizzas: Pizza[]): PizzaGroup[] {
 
 export default function PublicCarteBuilder({ pizzas }: PublicCarteBuilderProps) {
   const [deviceMode, setDeviceMode] = useState<DeviceMode>("unknown");
+
   const [quantities, setQuantities] = useState<Record<number, number>>({});
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [phoneFieldError, setPhoneFieldError] = useState("");
   const [desiredTime, setDesiredTime] = useState("");
   const [notes, setNotes] = useState("");
+
   const [quote, setQuote] = useState<QuoteResponse | null>(null);
   const [selectedSlot, setSelectedSlot] = useState("");
+
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [copyMessage, setCopyMessage] = useState("");
+
   const [isQuoting, setIsQuoting] = useState(false);
   const [isSendingDesktopRequest, setIsSendingDesktopRequest] = useState(false);
 
@@ -150,6 +188,7 @@ export default function PublicCarteBuilder({ pizzas }: PublicCarteBuilderProps) 
     }
 
     updateMode();
+
     mediaQuery.addEventListener("change", updateMode);
 
     return () => {
@@ -167,6 +206,8 @@ export default function PublicCarteBuilder({ pizzas }: PublicCarteBuilderProps) 
       }))
       .filter((item) => item.quantity > 0);
   }, [pizzas, quantities]);
+
+  const quoteRequestKey = useMemo(() => JSON.stringify(items), [items]);
 
   const selectedItems = useMemo(() => {
     return pizzas
@@ -194,6 +235,7 @@ export default function PublicCarteBuilder({ pizzas }: PublicCarteBuilderProps) 
 
   const smsBody = useMemo(() => {
     const lines: string[] = [];
+    const effectiveDesiredTime = desiredTime || selectedSlot;
 
     lines.push("Bonjour, je souhaite préparer une demande :");
 
@@ -207,10 +249,11 @@ export default function PublicCarteBuilder({ pizzas }: PublicCarteBuilderProps) 
 
     lines.push("");
     lines.push(`Nom ou prénom : ${customerName.trim() || "à préciser"}`);
+    lines.push(`Téléphone : ${customerPhone.trim() || "à préciser"}`);
     lines.push(`Créneau souhaité : ${selectedSlot || "à préciser"}`);
 
-    if (desiredTime.trim()) {
-      lines.push(`Heure souhaitée initiale : ${desiredTime.trim()}`);
+    if (effectiveDesiredTime.trim() && effectiveDesiredTime !== selectedSlot) {
+      lines.push(`Heure souhaitée initiale : ${effectiveDesiredTime.trim()}`);
     }
 
     lines.push(`Commentaire : ${notes.trim() || "aucun"}`);
@@ -218,23 +261,88 @@ export default function PublicCarteBuilder({ pizzas }: PublicCarteBuilderProps) 
     lines.push("Merci.");
 
     return lines.join("\n");
-  }, [customerName, desiredTime, notes, selectedItems, selectedSlot]);
+  }, [customerName, customerPhone, desiredTime, notes, selectedItems, selectedSlot]);
 
   const smsHref = useMemo(() => {
     const target = normalizePhoneForSmsLink(ORDER_PHONE_NUMBER);
     const encodedBody = encodeURIComponent(smsBody);
+
     return `sms:${target}?body=${encodedBody}`;
   }, [smsBody]);
+
+  useEffect(() => {
+    let shouldIgnore = false;
+
+    async function updateQuote() {
+      if (items.length === 0) {
+        setQuote(null);
+        setSelectedSlot("");
+        setIsQuoting(false);
+        return;
+      }
+
+      setIsQuoting(true);
+      setErrorMessage("");
+
+      try {
+        const response = await fetch("/api/quote", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            desiredTime: desiredTime || undefined,
+            items,
+          }),
+        });
+
+        const data = await readJsonResponse<QuoteResponse & ApiErrorResponse>(
+          response,
+        );
+
+        if (!response.ok) {
+          throw new Error(data.error || "Erreur de calcul des créneaux.");
+        }
+
+        if (shouldIgnore) {
+          return;
+        }
+
+        const closestReference =
+          desiredTime || data.serviceOpeningTime || data.slots[0] || "";
+
+        setQuote(data);
+        setSelectedSlot(findClosestSlot(data.slots, closestReference));
+      } catch (error) {
+        if (shouldIgnore) {
+          return;
+        }
+
+        setQuote(null);
+        setSelectedSlot("");
+        setErrorMessage(
+          error instanceof Error
+            ? error.message
+            : "Erreur de calcul des créneaux.",
+        );
+      } finally {
+        if (!shouldIgnore) {
+          setIsQuoting(false);
+        }
+      }
+    }
+
+    updateQuote();
+
+    return () => {
+      shouldIgnore = true;
+    };
+  }, [quoteRequestKey, desiredTime]);
 
   function clearMessages() {
     setErrorMessage("");
     setSuccessMessage("");
     setCopyMessage("");
-  }
-
-  function clearQuote() {
-    setQuote(null);
-    setSelectedSlot("");
   }
 
   function setQuantity(pizzaId: number, nextQuantity: number) {
@@ -244,81 +352,26 @@ export default function PublicCarteBuilder({ pizzas }: PublicCarteBuilderProps) 
     }));
 
     clearMessages();
-    clearQuote();
   }
 
-  function validateDesktopPhoneBeforeQuote(): boolean {
-    if (deviceMode !== "desktop") {
-      return true;
-    }
-
+  function validateCustomerPhoneForFinalAction(): boolean {
     if (!customerPhone.trim()) {
       setPhoneFieldError(
-        "Le téléphone est obligatoire pour vous confirmer le créneau retenu par SMS.",
+        "Renseignez un numéro de téléphone pour que nous puissions confirmer le créneau.",
       );
+
       return false;
     }
 
     if (!isValidFrenchPhone(customerPhone)) {
-      setPhoneFieldError("Indique un numéro de téléphone valide.");
+      setPhoneFieldError("Indiquez un numéro de téléphone valide.");
+
       return false;
     }
 
     setPhoneFieldError("");
+
     return true;
-  }
-
-  async function handleQuote() {
-    clearMessages();
-    clearQuote();
-
-    if (items.length === 0) {
-      setErrorMessage("Choisis au moins une pizza.");
-      return;
-    }
-
-    if (!desiredTime) {
-      setErrorMessage("Renseigne une heure souhaitée pour obtenir des créneaux.");
-      return;
-    }
-
-    if (!validateDesktopPhoneBeforeQuote()) {
-      return;
-    }
-
-    setIsQuoting(true);
-
-    try {
-      const response = await fetch("/api/quote", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          desiredTime,
-          items,
-        }),
-      });
-
-      const data = await readJsonResponse<QuoteResponse & ApiErrorResponse>(
-        response,
-      );
-
-      if (!response.ok) {
-        throw new Error(data.error || "Erreur de calcul des créneaux.");
-      }
-
-      const sortedSlots = sortSlotsChronologically(data.slots);
-
-      setQuote(data);
-      setSelectedSlot(sortedSlots[0] ?? "");
-    } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : "Erreur de calcul des créneaux.",
-      );
-    } finally {
-      setIsQuoting(false);
-    }
   }
 
   async function handleCopyMessage() {
@@ -350,8 +403,17 @@ export default function PublicCarteBuilder({ pizzas }: PublicCarteBuilderProps) 
       return;
     }
 
+    if (!validateCustomerPhoneForFinalAction()) {
+      return;
+    }
+
+    if (isQuoting) {
+      setErrorMessage("Les créneaux sont encore en cours de mise à jour.");
+      return;
+    }
+
     if (!selectedSlot) {
-      setErrorMessage("Choisis d’abord un créneau.");
+      setErrorMessage("Choisis d’abord un créneau disponible.");
       return;
     }
 
@@ -371,20 +433,12 @@ export default function PublicCarteBuilder({ pizzas }: PublicCarteBuilderProps) 
       return;
     }
 
-    if (!customerPhone.trim()) {
-      setPhoneFieldError(
-        "Le téléphone est obligatoire pour vous confirmer le créneau retenu par SMS.",
-      );
+    if (!validateCustomerPhoneForFinalAction()) {
       return;
     }
 
-    if (!isValidFrenchPhone(customerPhone)) {
-      setPhoneFieldError("Indique un numéro de téléphone valide.");
-      return;
-    }
-
-    if (!desiredTime) {
-      setErrorMessage("Renseigne une heure souhaitée.");
+    if (isQuoting) {
+      setErrorMessage("Les créneaux sont encore en cours de mise à jour.");
       return;
     }
 
@@ -393,10 +447,11 @@ export default function PublicCarteBuilder({ pizzas }: PublicCarteBuilderProps) 
       return;
     }
 
-    setPhoneFieldError("");
     setIsSendingDesktopRequest(true);
 
     try {
+      const effectiveDesiredTime = desiredTime || selectedSlot;
+
       const response = await fetch("/api/public/request", {
         method: "POST",
         headers: {
@@ -405,7 +460,7 @@ export default function PublicCarteBuilder({ pizzas }: PublicCarteBuilderProps) 
         body: JSON.stringify({
           customerName,
           customerPhone,
-          desiredTime,
+          desiredTime: effectiveDesiredTime,
           selectedSlot,
           notes,
           items,
@@ -420,10 +475,12 @@ export default function PublicCarteBuilder({ pizzas }: PublicCarteBuilderProps) 
 
       setCustomerName("");
       setCustomerPhone("");
+      setPhoneFieldError("");
       setDesiredTime("");
       setNotes("");
       setQuantities({});
-      clearQuote();
+      setQuote(null);
+      setSelectedSlot("");
 
       setSuccessMessage(
         "Votre demande a été enregistrée. Nous reviendrons vers vous pour confirmer le créneau.",
@@ -463,7 +520,10 @@ export default function PublicCarteBuilder({ pizzas }: PublicCarteBuilderProps) 
                           className="att-pizza-photo"
                         />
                       ) : (
-                        <div className="att-pizza-photo-placeholder" aria-hidden="true" />
+                        <div
+                          className="att-pizza-photo-placeholder"
+                          aria-hidden="true"
+                        />
                       )}
 
                       <div className="att-pizza-card-body">
@@ -490,7 +550,9 @@ export default function PublicCarteBuilder({ pizzas }: PublicCarteBuilderProps) 
                             >
                               −
                             </button>
+
                             <span>{quantity}</span>
+
                             <button
                               type="button"
                               onClick={() => setQuantity(pizza.id, quantity + 1)}
@@ -513,16 +575,14 @@ export default function PublicCarteBuilder({ pizzas }: PublicCarteBuilderProps) 
       <aside className="att-order-panel" aria-label="Préparer ma demande">
         <div className="att-order-panel-inner">
           <p className="att-order-intro-note">
-            Vous pouvez naturellement commander vos pizzas par téléphone au
-            06-79-95-89-62, mais en dehors des heures de services, merci de
-            privilégier la prise de contact par le formulaire ci-dessous.
+            Vous pouvez naturellement commander vos pizzas par téléphone au{" "}
+            <strong>06-79-95-89-62</strong>, mais en dehors des heures de service,
+            merci de privilégier la prise de contact par le formulaire ci-dessous.
           </p>
 
           <h2>Préparer ma demande</h2>
 
-          <p className="att-field-help">
-            Le paiement s&apos;effectue sur place.
-          </p>
+          <p className="att-field-help">Le paiement s&apos;effectue sur place.</p>
 
           <div className="att-public-field">
             <label htmlFor="customerName">Nom ou prénom</label>
@@ -539,48 +599,32 @@ export default function PublicCarteBuilder({ pizzas }: PublicCarteBuilderProps) 
           </div>
 
           <div className="att-public-field">
-            <label htmlFor="desiredTime">Mon créneau</label>
+            <label htmlFor="customerPhone">Téléphone</label>
             <input
-              id="desiredTime"
-              type="time"
-              value={desiredTime}
+              id="customerPhone"
+              type="tel"
+              value={customerPhone}
               onChange={(event) => {
-                setDesiredTime(event.target.value);
+                setCustomerPhone(event.target.value);
+                setPhoneFieldError("");
                 clearMessages();
-                clearQuote();
               }}
+              placeholder="06 12 34 56 78"
+              aria-invalid={phoneFieldError ? "true" : "false"}
+              aria-describedby="customerPhoneHelp customerPhoneError"
             />
-          </div>
 
-          {deviceMode === "desktop" ? (
-            <div className="att-public-field">
-              <label htmlFor="customerPhone">Téléphone</label>
-              <input
-                id="customerPhone"
-                type="tel"
-                value={customerPhone}
-                onChange={(event) => {
-                  setCustomerPhone(event.target.value);
-                  setPhoneFieldError("");
-                  clearMessages();
-                }}
-                placeholder="06 12 34 56 78"
-                aria-invalid={phoneFieldError ? "true" : "false"}
-                aria-describedby="customerPhoneHelp customerPhoneError"
-              />
+            <p id="customerPhoneHelp" className="att-field-help">
+              Votre numéro nous sert simplement à vous confirmer par SMS le créneau
+              retenu, et valider la commande.
+            </p>
 
-              <p id="customerPhoneHelp" className="att-field-help">
-                Votre numéro nous sert simplement à vous confirmer par SMS le
-                créneau retenu, et valider la commande.
+            {phoneFieldError ? (
+              <p id="customerPhoneError" className="att-field-error">
+                {phoneFieldError}
               </p>
-
-              {phoneFieldError ? (
-                <p id="customerPhoneError" className="att-field-error">
-                  {phoneFieldError}
-                </p>
-              ) : null}
-            </div>
-          ) : null}
+            ) : null}
+          </div>
 
           <div className="att-public-field">
             <label htmlFor="notes">Commentaires</label>
@@ -595,15 +639,6 @@ export default function PublicCarteBuilder({ pizzas }: PublicCarteBuilderProps) 
             />
           </div>
 
-          <button
-            type="button"
-            className="att-black-button att-full-width"
-            onClick={handleQuote}
-            disabled={isQuoting || isSendingDesktopRequest}
-          >
-            {isQuoting ? "Calcul..." : "Voir les créneaux disponibles"}
-          </button>
-
           {errorMessage ? (
             <div className="message error att-inline-error">{errorMessage}</div>
           ) : null}
@@ -613,7 +648,31 @@ export default function PublicCarteBuilder({ pizzas }: PublicCarteBuilderProps) 
           <section className="att-order-subsection">
             <h3>Créneaux disponibles</h3>
 
-            {quote ? (
+            <div className="att-public-field">
+              <label htmlFor="desiredTime">Heure souhaitée</label>
+              <input
+                id="desiredTime"
+                type="time"
+                value={desiredTime}
+                onChange={(event) => {
+                  setDesiredTime(event.target.value);
+                  clearMessages();
+                }}
+              />
+
+              <p className="att-field-help">
+                Optionnel : si vous indiquez une heure, le créneau disponible le
+                plus proche est sélectionné automatiquement.
+              </p>
+            </div>
+
+            {items.length === 0 ? (
+              <p className="att-empty">
+                Sélectionnez au moins une pizza pour afficher les créneaux.
+              </p>
+            ) : isQuoting ? (
+              <p className="att-empty">Mise à jour des créneaux disponibles...</p>
+            ) : quote ? (
               sortedQuoteSlots.length === 0 ? (
                 <p className="att-empty">
                   Aucun créneau disponible ce soir avec cette charge.
@@ -637,17 +696,20 @@ export default function PublicCarteBuilder({ pizzas }: PublicCarteBuilderProps) 
                           checked={selectedSlot === slot}
                           onChange={() => setSelectedSlot(slot)}
                         />
+
                         <span>{slot}</span>
                       </label>
                     ))}
                   </div>
 
-                  <p className="att-slot-help">et plus encore...</p>
+                  <p className="att-slot-help">
+                    Ces créneaux sont proposés en fonction de votre sélection.
+                  </p>
                 </>
               )
             ) : (
               <p className="att-empty">
-                Sélectionnez vos pizzas et un horaire, puis demandez les créneaux.
+                Les créneaux s’afficheront automatiquement avec votre sélection.
               </p>
             )}
           </section>
@@ -678,7 +740,9 @@ export default function PublicCarteBuilder({ pizzas }: PublicCarteBuilderProps) 
                       >
                         −
                       </button>
+
                       <span>{item.quantity}</span>
+
                       <button
                         type="button"
                         onClick={() =>
@@ -740,8 +804,8 @@ export default function PublicCarteBuilder({ pizzas }: PublicCarteBuilderProps) 
 
           {deviceMode === "desktop" ? (
             <p className="att-desktop-note">
-              Une fois votre commande envoyée, elle sera contrôlée manuellement
-              et nous vous confirmerons par SMS l&apos;heure !
+              Une fois votre commande envoyée, elle sera contrôlée manuellement et
+              nous vous confirmerons par SMS l&apos;heure !
             </p>
           ) : null}
 
@@ -754,6 +818,7 @@ export default function PublicCarteBuilder({ pizzas }: PublicCarteBuilderProps) 
           {deviceMode === "mobile" ? (
             <details className="att-sms-preview">
               <summary>Voir le message généré</summary>
+
               <textarea id="smsPreview" value={smsBody} readOnly />
 
               <button
@@ -771,8 +836,10 @@ export default function PublicCarteBuilder({ pizzas }: PublicCarteBuilderProps) 
       {deviceMode === "desktop" ? (
         <section className="att-mobile-explanation-card">
           <div className="att-phone-sketch" aria-hidden="true" />
+
           <div>
             <h2>Sur mobile, encore plus simple !</h2>
+
             <p>
               Votre demande est envoyée par SMS et un échange rapide permet de
               confirmer le créneau.

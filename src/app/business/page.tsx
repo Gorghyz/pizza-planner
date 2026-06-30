@@ -65,6 +65,17 @@ export default function BusinessHomePage() {
           </p>
         </Link>
 
+        <Link
+          href="/business/admin/image-accueil"
+          className="card feature-card feature-link-card"
+        >
+          <h2>Image d&apos;accueil</h2>
+          <p>
+            Ajouter les bandeaux de pizzas et choisir l&apos;image active sur la page
+            d&apos;accueil.
+          </p>
+        </Link>
+
         <Link href="/business/admin" className="card feature-card feature-link-card">
           <h2>Réglages business</h2>
           <p>
