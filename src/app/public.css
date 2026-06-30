@@ -1453,9 +1453,17 @@
   width: 100%;
   height: auto;
   min-height: 0;
-  aspect-ratio: 16 / 9;
-  object-fit: cover;
+  max-height: none;
+  aspect-ratio: auto;
+  object-fit: contain;
   border-bottom: 0;
+  background: #fffdf8;
+}
+
+.att-event-gallery-card .pizza-photo-gallery-slide {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .att-order-context-box {
