@@ -1,5 +1,4 @@
-import Link from "next/link";
-import BusinessLogoutButton from "@/components/business-logout-button";
+import BusinessSectionNav from "@/components/business-navigation";
 import BusinessSettingsAdmin from "@/components/business-settings-admin";
 import { getBusinessLocationsWithHours, getTodayServiceSettings } from "@/lib/data";
 
@@ -20,24 +19,7 @@ export default async function BusinessAdminPage() {
           pour l&apos;affichage client et les créneaux proposés.
         </p>
 
-        <div className="page-actions">
-          <Link href="/business" className="link-button secondary-link">
-            Accueil business
-          </Link>
-          <Link href="/business/prise" className="link-button">
-            Prise de commande
-          </Link>
-          <Link href="/business/cuisine" className="link-button secondary-link">
-            Vue cuisine
-          </Link>
-          <Link
-            href="/business/admin/image-accueil"
-            className="link-button secondary-link"
-          >
-            Image d&apos;accueil
-          </Link>
-          <BusinessLogoutButton />
-        </div>
+        <BusinessSectionNav section="site-admin" currentHref="/business/admin" />
       </header>
 
       <section className="card" style={{ marginBottom: 20 }}>
