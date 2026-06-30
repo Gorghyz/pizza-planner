@@ -154,6 +154,7 @@ async function parseFormData(formData: FormData) {
   const seasonality = String(formData.get("seasonality") ?? "").trim();
   const prepMinutes = Number(formData.get("prepMinutes") ?? 0);
   const active = String(formData.get("active") ?? "true") === "true";
+  const isClassic = String(formData.get("isClassic") ?? "false") === "true";
   const priceRaw = String(formData.get("priceEuros") ?? "").trim();
   const existingPhotosRaw = String(formData.get("existingPhotosJson") ?? "");
   const existingPhotoPath =
@@ -205,6 +206,7 @@ async function parseFormData(formData: FormData) {
         seasonality,
         prepMinutes,
         active,
+        isClassic,
         photoPath: existingPhotos[0]?.imagePath ?? null,
         priceCents,
       },

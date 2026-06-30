@@ -29,3 +29,4 @@ Thumbs.db
 
 # Local uploads if any
 public/uploads/
+*.tsbuildinfo

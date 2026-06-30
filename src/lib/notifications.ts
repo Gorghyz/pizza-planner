@@ -13,6 +13,8 @@ type NotifyOrderCreatedInput = {
   totalPizzas: number;
   totalPriceCents: number;
   promisedTime: string;
+  serviceDate?: string;
+  eventTitle?: string;
 };
 
 type NotifyCustomerRequestCreatedInput = {
@@ -20,6 +22,8 @@ type NotifyCustomerRequestCreatedInput = {
   totalPizzas: number;
   totalPriceCents: number;
   selectedSlot: string;
+  serviceDate?: string;
+  eventTitle?: string;
 };
 
 function isEnabled(): boolean {
@@ -132,10 +136,12 @@ export async function notifyOrderCreated(
 ): Promise<void> {
   const lines = [
     `Commande #${input.orderId}`,
+    input.eventTitle ? `Événement : ${input.eventTitle}` : null,
+    input.serviceDate ? `Date : ${input.serviceDate}` : null,
     `${input.totalPizzas} pizza(s)`,
     `Total : ${formatEuros(input.totalPriceCents)}`,
     `Créneau : ${input.promisedTime}`,
-  ];
+  ].filter((line): line is string => line !== null);
 
   await publishNotification({
     title: "Nouvelle commande",
@@ -151,11 +157,13 @@ export async function notifyCustomerRequestCreated(
 ): Promise<void> {
   const lines = [
     `Demande internet #${input.requestId}`,
+    input.eventTitle ? `Événement : ${input.eventTitle}` : null,
+    input.serviceDate ? `Date : ${input.serviceDate}` : null,
     `${input.totalPizzas} pizza(s)`,
     `Total : ${formatEuros(input.totalPriceCents)}`,
     `Créneau demandé : ${input.selectedSlot}`,
     "À confirmer dans les demandes.",
-  ];
+  ].filter((line): line is string => line !== null);
 
   await publishNotification({
     title: "Nouvelle demande internet",

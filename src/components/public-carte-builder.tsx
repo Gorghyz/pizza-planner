@@ -6,8 +6,20 @@ import PizzaPhotoGallery from "@/components/pizza-photo-gallery";
 import type { PizzaGalleryImage } from "@/components/pizza-photo-gallery";
 import type { DraftItem, Pizza, QuoteResponse } from "@/lib/types";
 
+type PublicOrderContext = {
+  eventSlug?: string;
+  eventTitle?: string;
+  serviceDate?: string;
+  serviceDateLabel?: string;
+  introNote?: string;
+  orderingAllowed?: boolean;
+  orderingClosedMessage?: string;
+  submitSuccessMessage?: string;
+};
+
 type PublicCarteBuilderProps = {
   pizzas: Pizza[];
+  orderContext?: PublicOrderContext;
 };
 
 type DeviceMode = "unknown" | "mobile" | "desktop";
@@ -149,14 +161,8 @@ function getPizzaGalleryImages(pizza: Pizza): PizzaGalleryImage[] {
 }
 
 function groupPizzas(pizzas: Pizza[]): PizzaGroup[] {
-  const seasonPizzas = pizzas.filter((pizza) => {
-    const seasonality = pizza.seasonality.toLowerCase();
-
-    return seasonality.includes("saison") || seasonality.includes("season");
-  });
-
-  const seasonIds = new Set(seasonPizzas.map((pizza) => pizza.id));
-  const classicPizzas = pizzas.filter((pizza) => !seasonIds.has(pizza.id));
+  const classicPizzas = pizzas.filter((pizza) => pizza.isClassic);
+  const momentPizzas = pizzas.filter((pizza) => !pizza.isClassic);
   const groups: PizzaGroup[] = [];
 
   if (classicPizzas.length > 0) {
@@ -166,10 +172,10 @@ function groupPizzas(pizzas: Pizza[]): PizzaGroup[] {
     });
   }
 
-  if (seasonPizzas.length > 0) {
+  if (momentPizzas.length > 0) {
     groups.push({
-      title: "Les saisons",
-      pizzas: seasonPizzas,
+      title: "Les pizzas du moment",
+      pizzas: momentPizzas,
     });
   }
 
@@ -183,7 +189,7 @@ function groupPizzas(pizzas: Pizza[]): PizzaGroup[] {
   return groups;
 }
 
-export default function PublicCarteBuilder({ pizzas }: PublicCarteBuilderProps) {
+export default function PublicCarteBuilder({ pizzas, orderContext }: PublicCarteBuilderProps) {
   const [deviceMode, setDeviceMode] = useState<DeviceMode>("unknown");
 
   const [quantities, setQuantities] = useState<Record<number, number>>({});
@@ -202,6 +208,13 @@ export default function PublicCarteBuilder({ pizzas }: PublicCarteBuilderProps) 
 
   const [isQuoting, setIsQuoting] = useState(false);
   const [isSendingDesktopRequest, setIsSendingDesktopRequest] = useState(false);
+
+  const orderingAllowed = orderContext?.orderingAllowed !== false;
+  const eventSlug = orderContext?.eventSlug ?? "";
+  const orderTitle = orderContext?.eventTitle
+    ? `Préparer ma précommande`
+    : "Préparer ma demande";
+  const serviceDateLabel = orderContext?.serviceDateLabel ?? "ce soir";
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(pointer: coarse)");
@@ -260,7 +273,22 @@ export default function PublicCarteBuilder({ pizzas }: PublicCarteBuilderProps) 
     const lines: string[] = [];
     const effectiveDesiredTime = desiredTime || selectedSlot;
 
-    lines.push("Bonjour, je souhaite préparer une demande :");
+    if (orderContext?.eventTitle) {
+      lines.push("Bonjour, je souhaite préparer une précommande pour cet événement :");
+      lines.push(`Événement : ${orderContext.eventTitle}`);
+
+      if (orderContext.serviceDateLabel) {
+        lines.push(`Date de l’événement : ${orderContext.serviceDateLabel}`);
+      }
+
+      lines.push("Commande uniquement pour cet événement.");
+    } else {
+      lines.push("Bonjour, je souhaite préparer une demande :");
+    }
+
+    if (!orderContext?.eventTitle && orderContext?.serviceDateLabel) {
+      lines.push(`Date : ${orderContext.serviceDateLabel}`);
+    }
 
     if (selectedItems.length === 0) {
       lines.push("- aucune pizza sélectionnée pour le moment");
@@ -284,7 +312,7 @@ export default function PublicCarteBuilder({ pizzas }: PublicCarteBuilderProps) 
     lines.push("Merci.");
 
     return lines.join("\n");
-  }, [customerName, customerPhone, desiredTime, notes, selectedItems, selectedSlot]);
+  }, [customerName, customerPhone, desiredTime, notes, orderContext?.eventTitle, orderContext?.serviceDateLabel, selectedItems, selectedSlot]);
 
   const smsHref = useMemo(() => {
     const target = normalizePhoneForSmsLink(ORDER_PHONE_NUMBER);
@@ -297,7 +325,7 @@ export default function PublicCarteBuilder({ pizzas }: PublicCarteBuilderProps) 
     let shouldIgnore = false;
 
     async function updateQuote() {
-      if (items.length === 0) {
+      if (items.length === 0 || !orderingAllowed) {
         setQuote(null);
         setSelectedSlot("");
         setIsQuoting(false);
@@ -316,6 +344,7 @@ export default function PublicCarteBuilder({ pizzas }: PublicCarteBuilderProps) 
           body: JSON.stringify({
             desiredTime: desiredTime || undefined,
             items,
+            eventSlug: eventSlug || undefined,
           }),
         });
 
@@ -360,7 +389,7 @@ export default function PublicCarteBuilder({ pizzas }: PublicCarteBuilderProps) 
     return () => {
       shouldIgnore = true;
     };
-  }, [quoteRequestKey, desiredTime]);
+  }, [eventSlug, orderingAllowed, quoteRequestKey, desiredTime]);
 
   function clearMessages() {
     setErrorMessage("");
@@ -416,6 +445,14 @@ export default function PublicCarteBuilder({ pizzas }: PublicCarteBuilderProps) 
   function handleOpenSms() {
     clearMessages();
 
+    if (!orderingAllowed) {
+      setErrorMessage(
+        orderContext?.orderingClosedMessage ||
+          "Les commandes ne sont pas ouvertes pour cette date.",
+      );
+      return;
+    }
+
     if (items.length === 0) {
       setErrorMessage("Choisis au moins une pizza.");
       return;
@@ -445,6 +482,14 @@ export default function PublicCarteBuilder({ pizzas }: PublicCarteBuilderProps) 
 
   async function handleSendDesktopRequest() {
     clearMessages();
+
+    if (!orderingAllowed) {
+      setErrorMessage(
+        orderContext?.orderingClosedMessage ||
+          "Les commandes ne sont pas ouvertes pour cette date.",
+      );
+      return;
+    }
 
     if (items.length === 0) {
       setErrorMessage("Choisis au moins une pizza.");
@@ -487,6 +532,7 @@ export default function PublicCarteBuilder({ pizzas }: PublicCarteBuilderProps) 
           selectedSlot,
           notes,
           items,
+          eventSlug: eventSlug || undefined,
         }),
       });
 
@@ -506,7 +552,8 @@ export default function PublicCarteBuilder({ pizzas }: PublicCarteBuilderProps) 
       setSelectedSlot("");
 
       setSuccessMessage(
-        "Votre demande a été enregistrée. Nous reviendrons vers vous pour confirmer le créneau.",
+        orderContext?.submitSuccessMessage ||
+          "Votre demande a été enregistrée. Nous reviendrons vers vous pour confirmer le créneau.",
       );
     } catch (error) {
       setErrorMessage(
@@ -590,14 +637,34 @@ export default function PublicCarteBuilder({ pizzas }: PublicCarteBuilderProps) 
       <aside className="att-order-panel" aria-label="Préparer ma demande">
         <div className="att-order-panel-inner">
           <p className="att-order-intro-note">
-            Vous pouvez naturellement commander vos pizzas par téléphone au{" "}
-            <strong>06-79-95-89-62</strong>, mais en dehors des heures de service,
-            merci de privilégier la prise de contact par le formulaire ci-dessous.
+            {orderContext?.introNote ? (
+              orderContext.introNote
+            ) : (
+              <>
+                Vous pouvez naturellement commander vos pizzas par téléphone au{" "}
+                <strong>06-79-95-89-62</strong>, mais en dehors des heures de service,
+                merci de privilégier la prise de contact par le formulaire ci-dessous.
+              </>
+            )}
           </p>
 
-          <h2>Préparer ma demande</h2>
+          <h2>{orderTitle}</h2>
+
+          {orderContext?.eventTitle || orderContext?.serviceDateLabel ? (
+            <div className="att-order-context-box">
+              {orderContext?.eventTitle ? <strong>{orderContext.eventTitle}</strong> : null}
+              <span>Commande pour {serviceDateLabel}</span>
+            </div>
+          ) : null}
 
           <p className="att-field-help">Le paiement s&apos;effectue sur place.</p>
+
+          {!orderingAllowed ? (
+            <div className="message error att-inline-error">
+              {orderContext?.orderingClosedMessage ||
+                "Les commandes ne sont pas ouvertes pour cette date."}
+            </div>
+          ) : null}
 
           <div className="att-public-field">
             <label htmlFor="customerName">Nom ou prénom</label>
@@ -681,7 +748,11 @@ export default function PublicCarteBuilder({ pizzas }: PublicCarteBuilderProps) 
               </p>
             </div>
 
-            {items.length === 0 ? (
+            {!orderingAllowed ? (
+              <p className="att-empty">
+                Les créneaux seront disponibles lorsque les commandes seront ouvertes.
+              </p>
+            ) : items.length === 0 ? (
               <p className="att-empty">
                 Sélectionnez au moins une pizza pour afficher les créneaux.
               </p>
@@ -690,7 +761,7 @@ export default function PublicCarteBuilder({ pizzas }: PublicCarteBuilderProps) 
             ) : quote ? (
               sortedQuoteSlots.length === 0 ? (
                 <p className="att-empty">
-                  Aucun créneau disponible ce soir avec cette charge.
+                  Aucun créneau disponible pour cette date avec cette charge.
                 </p>
               ) : (
                 <>
@@ -803,7 +874,7 @@ export default function PublicCarteBuilder({ pizzas }: PublicCarteBuilderProps) 
                 type="button"
                 className="att-image-button"
                 onClick={handleSendDesktopRequest}
-                disabled={isSendingDesktopRequest}
+                disabled={isSendingDesktopRequest || !orderingAllowed}
                 aria-label="Envoyer ma demande"
               >
                 <img

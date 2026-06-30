@@ -99,6 +99,7 @@ export default function AdminPizzaForm({
   const [allergens, setAllergens] = useState("");
   const [prepMinutes, setPrepMinutes] = useState("4");
   const [active, setActive] = useState(true);
+  const [isClassic, setIsClassic] = useState(false);
   const [existingPhotos, setExistingPhotos] = useState<PizzaPhoto[]>([]);
   const [newPhotoPreviews, setNewPhotoPreviews] = useState<NewPhotoPreview[]>([]);
   const newPhotoPreviewsRef = useRef<NewPhotoPreview[]>([]);
@@ -145,6 +146,7 @@ export default function AdminPizzaForm({
     setAllergens("");
     setPrepMinutes("4");
     setActive(true);
+    setIsClassic(false);
     setExistingPhotos([]);
     clearNewPhotoPreviews();
     setErrorMessage("");
@@ -165,6 +167,7 @@ export default function AdminPizzaForm({
     setAllergens(pizza.allergens);
     setPrepMinutes(String(pizza.prepMinutes));
     setActive(pizza.active);
+    setIsClassic(pizza.isClassic);
     setExistingPhotos(getPizzaPhotos(pizza));
     clearNewPhotoPreviews();
     setErrorMessage("");
@@ -326,6 +329,7 @@ export default function AdminPizzaForm({
       formData.set("allergens", allergens.trim());
       formData.set("prepMinutes", String(numericPrep));
       formData.set("active", String(active));
+      formData.set("isClassic", String(isClassic));
       formData.set("existingPhotosJson", JSON.stringify(orderedExistingPhotos));
       formData.set("existingPhotoPath", orderedExistingPhotos[0]?.imagePath ?? "");
 
@@ -575,6 +579,15 @@ export default function AdminPizzaForm({
           <label className="checkbox-row">
             <input
               type="checkbox"
+              checked={isClassic}
+              onChange={(event) => setIsClassic(event.target.checked)}
+            />
+            <span>Classique : afficher dans la catégorie “Les classiques”</span>
+          </label>
+
+          <label className="checkbox-row">
+            <input
+              type="checkbox"
               checked={active}
               onChange={(event) => setActive(event.target.checked)}
             />
@@ -626,7 +639,7 @@ export default function AdminPizzaForm({
                     <div>
                       <h3>{pizza.name}</h3>
                       <div className="small">
-                        {formatEuros(pizza.priceCents)} · {pizza.prepMinutes} min · {photoCount} photo{photoCount > 1 ? "s" : ""}
+                        {formatEuros(pizza.priceCents)} · {pizza.prepMinutes} min · {pizza.isClassic ? "Classique" : "Pizza du moment"} · {photoCount} photo{photoCount > 1 ? "s" : ""}
                       </div>
                     </div>
 
@@ -654,6 +667,14 @@ export default function AdminPizzaForm({
                       className="catalog-photo"
                     />
                   ) : null}
+
+
+                  <div className="catalog-section">
+                    <strong>Catégorie publique</strong>
+                    <div className="multiline-text">
+                      {pizza.isClassic ? "Les classiques" : "Les pizzas du moment"}
+                    </div>
+                  </div>
 
                   <div className="catalog-section">
                     <strong>Saisonnalité</strong>

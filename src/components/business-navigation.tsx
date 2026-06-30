@@ -45,6 +45,14 @@ const SITE_ADMIN_NAV_ITEMS: BusinessNavItem[] = [
     label: "Image d'accueil",
   },
   {
+    href: "/business/evenements",
+    label: "Événements",
+  },
+  {
+    href: "/business/calendrier",
+    label: "Calendrier",
+  },
+  {
     href: "/business/admin",
     label: "Réglages business",
   },

@@ -1,13 +1,26 @@
+import type { CSSProperties } from "react";
+
 import Link from "next/link";
 
 import PublicSiteShell from "@/components/public-site-shell";
-import { WEEKDAYS } from "@/lib/business-settings";
-import { getPublicLocationsWithHours, getTodayServiceSettings } from "@/lib/data";
+import {
+  buildServiceSettingsForDate,
+  getIsoWeekdayFromDateString,
+  WEEKDAYS,
+} from "@/lib/business-settings";
+import { getPublicLocationsWithHours } from "@/lib/data";
+import {
+  applyCalendarExceptionToServiceSettings,
+  getCalendarExceptionsForRange,
+} from "@/lib/business-calendar";
+import { getParisDateString } from "@/lib/dates";
+import { getVisiblePublishedEvents } from "@/lib/events";
 import { getActiveHomeImage } from "@/lib/home-images";
 import type {
   BusinessLocation,
+  BusinessCalendarException,
+  BusinessEvent,
   LocationWithHours,
-  OpeningHour,
   TodayServiceSettings,
 } from "@/lib/types";
 
@@ -26,7 +39,45 @@ const SCHEMA_DAY_BY_ISO_WEEKDAY: Record<number, string> = {
   7: "Sunday",
 };
 
-function buildOpenStreetMapUrl(location: BusinessLocation | null): string | null {
+type PublicHomeNotice =
+  | {
+      kind: "event";
+      title: string;
+      serviceDateLabel: string;
+      opensAt: string;
+      closesAt: string;
+      isOrderingOpenNow?: boolean;
+      images: {
+        id: number;
+        imagePath: string;
+        altText: string;
+      }[];
+      href: string;
+      buttonLabel: string;
+    }
+  | {
+      kind: "closure";
+      title: string;
+      body: string;
+    };
+
+function getHomeEventCalloutImageStyle(
+  index: number,
+  imageCount: number,
+): CSSProperties {
+  if (imageCount <= 1) {
+    return {};
+  }
+
+  return {
+    animationDelay: `${index * 4}s`,
+    animationDuration: `${imageCount * 4}s`,
+  };
+}
+
+function buildOpenStreetMapUrl(
+  location: BusinessLocation | null,
+): string | null {
   if (!location) {
     return null;
   }
@@ -85,7 +136,9 @@ function formatServicePlace(todayService: TodayServiceSettings): string {
     .join(" — ");
 }
 
-function getActiveLocations(locations: LocationWithHours[]): LocationWithHours[] {
+function getActiveLocations(
+  locations: LocationWithHours[],
+): LocationWithHours[] {
   return locations.filter((location) => location.isActive);
 }
 
@@ -104,22 +157,98 @@ function getCurrentLocationWithHours(
   );
 }
 
-function formatOpeningHour(hour: OpeningHour | undefined): string {
-  if (!hour || !hour.isOpen || !hour.opensAt || !hour.closesAt) {
-    return "fermé";
-  }
+function parseDateString(dateString: string): Date {
+  const [year, month, day] = dateString.split("-").map(Number);
 
-  return `${hour.opensAt} – ${hour.closesAt}`;
+  return new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
 }
 
-function buildOrderedWeekdays(todayIsoWeekday: number) {
-  const todayIndex = WEEKDAYS.findIndex((day) => day.value === todayIsoWeekday);
+function toDateString(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
 
-  if (todayIndex < 0) {
-    return WEEKDAYS;
+function addDaysToDateString(dateString: string, days: number): string {
+  const date = parseDateString(dateString);
+  date.setUTCDate(date.getUTCDate() + days);
+
+  return toDateString(date);
+}
+
+function buildCurrentWeekRange(today: string) {
+  const isoWeekday = getIsoWeekdayFromDateString(today);
+  const startDate = addDaysToDateString(today, -(isoWeekday - 1));
+  const endDate = addDaysToDateString(startDate, 6);
+
+  return { startDate, endDate };
+}
+
+function formatShortWeekDate(date: string, weekdayLabel: string): string {
+  return `${weekdayLabel} ${date.slice(8, 10)}/${date.slice(5, 7)}`;
+}
+
+type PublicWeekScheduleDay = {
+  date: string;
+  label: string;
+  isToday: boolean;
+  service: TodayServiceSettings;
+  exception: BusinessCalendarException | null;
+  event: BusinessEvent | null;
+};
+
+function buildCurrentWeekSchedule({
+  today,
+  locations,
+  exceptions,
+  visibleEvents,
+}: {
+  today: string;
+  locations: LocationWithHours[];
+  exceptions: BusinessCalendarException[];
+  visibleEvents: BusinessEvent[];
+}): PublicWeekScheduleDay[] {
+  const { startDate } = buildCurrentWeekRange(today);
+  const exceptionMap = new Map(
+    exceptions.map((exception) => [exception.serviceDate, exception]),
+  );
+  const eventsByDate = new Map<string, BusinessEvent[]>();
+
+  for (const event of visibleEvents) {
+    const current = eventsByDate.get(event.serviceDate) ?? [];
+    current.push(event);
+    eventsByDate.set(event.serviceDate, current);
   }
 
-  return [...WEEKDAYS.slice(todayIndex), ...WEEKDAYS.slice(0, todayIndex)];
+  return WEEKDAYS.map((_, index) => {
+    const date = addDaysToDateString(startDate, index);
+    const exception = exceptionMap.get(date) ?? null;
+    const baseService = buildServiceSettingsForDate(locations, date);
+    const service = applyCalendarExceptionToServiceSettings(
+      baseService,
+      exception,
+    );
+    const events = eventsByDate.get(date) ?? [];
+    const event =
+      events.sort((a, b) => a.opensAt.localeCompare(b.opensAt))[0] ?? null;
+
+    return {
+      date,
+      label: formatShortWeekDate(date, service.weekdayLabel),
+      isToday: date === today,
+      service,
+      exception,
+      event,
+    };
+  });
+}
+
+function formatWeekServiceStatus(day: PublicWeekScheduleDay): string {
+  if (day.exception?.status === "closed") {
+    return day.exception.title || "Fermé exceptionnellement";
+  }
+
+  return day.service.isOpen
+    ? `${day.service.opensAt} – ${day.service.closesAt}`
+    : "fermé";
 }
 
 function buildOpeningHoursSpecification(location: LocationWithHours | null) {
@@ -173,6 +302,59 @@ function buildAreaServed(activeLocations: LocationWithHours[]) {
         : "Place",
     name,
   }));
+}
+
+function buildPublicHomeNotice({
+  locations,
+  baseTodayService,
+  todayException,
+  visibleEvents,
+}: {
+  locations: LocationWithHours[];
+  baseTodayService: TodayServiceSettings;
+  todayException: BusinessCalendarException | null;
+  visibleEvents: Awaited<ReturnType<typeof getVisiblePublishedEvents>>;
+}): PublicHomeNotice | null {
+  const overlappingEvent = visibleEvents.find((event) => {
+    const baseService = buildServiceSettingsForDate(
+      locations,
+      event.serviceDate,
+    );
+
+    return baseService.isOpen;
+  });
+
+  if (overlappingEvent) {
+    return {
+      kind: "event",
+      title: overlappingEvent.title,
+      serviceDateLabel: overlappingEvent.serviceDateLabel,
+      opensAt: overlappingEvent.opensAt,
+      closesAt: overlappingEvent.closesAt,
+      isOrderingOpenNow: overlappingEvent.isOrderingOpenNow,
+      images: overlappingEvent.images.map((image) => ({
+        id: image.id,
+        imagePath: image.imagePath,
+        altText: image.altText,
+      })),
+      href: `/evenements/${overlappingEvent.slug}`,
+      buttonLabel: "Voir l'événement",
+    };
+  }
+
+  if (todayException?.status === "closed" && baseTodayService.isOpen) {
+    const reason = todayException.note || todayException.title;
+
+    return {
+      kind: "closure",
+      title: todayException.title || "Fermeture exceptionnelle",
+      body: reason
+        ? `Le service habituel est fermé aujourd'hui. ${reason}`
+        : "Le service habituel est fermé aujourd'hui.",
+    };
+  }
+
+  return null;
 }
 
 function buildCurrentServicePlace(location: BusinessLocation | null) {
@@ -246,17 +428,42 @@ function buildHomeStructuredData(
 }
 
 export default async function PublicHomePage() {
-  const [locations, todayService, activeHomeImage] = await Promise.all([
-    getPublicLocationsWithHours(),
-    getTodayServiceSettings(),
-    getActiveHomeImage(),
-  ]);
+  const today = getParisDateString();
+  const currentWeekRange = buildCurrentWeekRange(today);
+  const [locations, activeHomeImage, weekExceptions, visibleEvents] =
+    await Promise.all([
+      getPublicLocationsWithHours(),
+      getActiveHomeImage(),
+      getCalendarExceptionsForRange(
+        currentWeekRange.startDate,
+        currentWeekRange.endDate,
+      ),
+      getVisiblePublishedEvents(),
+    ]);
 
+  const todayException =
+    weekExceptions.find((exception) => exception.serviceDate === today) ?? null;
+  const baseTodayService = buildServiceSettingsForDate(locations, today);
+  const todayService = applyCalendarExceptionToServiceSettings(
+    baseTodayService,
+    todayException,
+  );
   const activeLocations = getActiveLocations(locations);
   const currentLocation = getCurrentLocationWithHours(locations, todayService);
+  const currentWeekSchedule = buildCurrentWeekSchedule({
+    today,
+    locations,
+    exceptions: weekExceptions,
+    visibleEvents,
+  });
+  const homeNotice = buildPublicHomeNotice({
+    locations,
+    baseTodayService,
+    todayException,
+    visibleEvents,
+  });
   const mapUrl = buildOpenStreetMapUrl(todayService.location);
   const mapEmbedUrl = buildOpenStreetMapEmbedUrl(todayService.location);
-  const orderedWeekdays = buildOrderedWeekdays(todayService.isoWeekday);
   const homeStructuredData = buildHomeStructuredData(
     todayService,
     currentLocation,
@@ -271,6 +478,7 @@ export default async function PublicHomePage() {
     activeHomeImage?.title ||
     "Pizzas du moment À table tonton !";
   const hasActiveHomeImage = Boolean(activeHomeImage);
+  const shouldShowDefaultHomeIllustration = !homeNotice && hasActiveHomeImage;
 
   return (
     <PublicSiteShell currentPage="home">
@@ -371,7 +579,90 @@ export default async function PublicHomePage() {
         </div>
       </section>
 
-      {hasActiveHomeImage ? (
+      {homeNotice ? (
+        homeNotice.kind === "event" ? (
+          <section
+            className="att-event-callout-list"
+            aria-label="Événement à venir"
+            style={{ marginTop: "32px" }}
+          >
+            <Link href={homeNotice.href} className="att-event-callout">
+              <div className="att-event-callout-copy">
+                <strong>{homeNotice.title}</strong>
+                <span>
+                  {homeNotice.serviceDateLabel} · {homeNotice.opensAt} → {homeNotice.closesAt}
+                </span>
+                <em>
+                  {homeNotice.isOrderingOpenNow
+                    ? "Précommande ouverte"
+                    : homeNotice.buttonLabel}
+                </em>
+              </div>
+
+              {homeNotice.images.length > 0 ? (
+                <div className="att-event-callout-gallery" aria-hidden="true">
+                  {homeNotice.images.map((image, index) => (
+                    <img
+                      key={`${image.id}-${image.imagePath}`}
+                      src={image.imagePath}
+                      alt=""
+                      className={
+                        homeNotice.images.length > 1
+                          ? "att-event-callout-gallery-image"
+                          : "att-event-callout-gallery-image att-event-callout-gallery-image-static"
+                      }
+                      style={getHomeEventCalloutImageStyle(
+                        index,
+                        homeNotice.images.length,
+                      )}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="att-event-callout-doodle" aria-hidden="true">
+                  <span />
+                </div>
+              )}
+            </Link>
+          </section>
+        ) : (
+          <section
+            aria-label="Information importante"
+            style={{
+              maxWidth: "760px",
+              margin: "18px auto 22px",
+              padding: "0 24px",
+            }}
+          >
+            <div
+              className="att-ink-card"
+              style={{
+                textAlign: "center",
+                padding: "22px",
+              }}
+            >
+              <p
+                style={{
+                  margin: "0 0 6px",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
+                  fontWeight: 800,
+                  fontSize: "0.8rem",
+                }}
+              >
+                Information service
+              </p>
+              <h2 style={{ margin: "0 0 10px" }}>{homeNotice.title}</h2>
+              <p style={{ margin: "0 auto 16px", maxWidth: "560px" }}>
+                {homeNotice.body}
+              </p>
+              <Link href="/carte" className="att-black-button">
+                Voir la carte
+              </Link>
+            </div>
+          </section>
+        )
+      ) : shouldShowDefaultHomeIllustration ? (
         <section
           aria-label="Illustration À table tonton !"
           style={{
@@ -416,17 +707,13 @@ export default async function PublicHomePage() {
             className="att-ink-card att-feature-card att-feature-card-link"
           >
             <div className="att-feature-icon att-feature-icon-image">
-              <img
-                src="/assets/icon-order.svg"
-                alt=""
-                aria-hidden="true"
-              />
+              <img src="/assets/icon-order.svg" alt="" aria-hidden="true" />
             </div>
             <div>
               <h2>Commander facilement</h2>
               <p>
-                Préparez votre demande facilement via notre page dédiée, par SMS ou
-                sur navigateur.
+                Préparez votre demande facilement via notre page dédiée, par SMS
+                ou sur navigateur.
               </p>
             </div>
           </Link>
@@ -445,8 +732,8 @@ export default async function PublicHomePage() {
             <div>
               <h2>Pizzas originales</h2>
               <p>
-                Des pizzas gourmandes et généreuses, des recettes originales et des
-                nouveautés chaque mois à venir découvrir !
+                Des pizzas gourmandes et généreuses, des recettes originales et
+                des nouveautés chaque mois à venir découvrir !
               </p>
             </div>
           </Link>
@@ -481,23 +768,28 @@ export default async function PublicHomePage() {
             <article className="att-ink-card att-small-info-card att-hours-card">
               <div className="att-info-icon">▷</div>
               <div>
-                <h3>Horaires</h3>
+                <h3>Horaires cette semaine</h3>
 
                 <ul className="att-week-hours">
-                  {orderedWeekdays.map((day) => {
-                    const hour = currentLocation?.hours.find(
-                      (entry) => entry.isoWeekday === day.value,
-                    );
+                  {currentWeekSchedule.map((day) => (
+                    <li
+                      key={day.date}
+                      className={day.isToday ? "att-today" : ""}
+                    >
+                      <span>{day.label}</span>
 
-                    const isToday = day.value === todayService.isoWeekday;
-
-                    return (
-                      <li key={day.value} className={isToday ? "att-today" : ""}>
-                        <span>{day.label}</span>
-                        <span>{formatOpeningHour(hour)}</span>
-                      </li>
-                    );
-                  })}
+                      {day.event ? (
+                        <Link
+                          href={`/evenements/${day.event.slug}`}
+                          className="att-week-event-link"
+                        >
+                          {day.event.title}
+                        </Link>
+                      ) : (
+                        <span>{formatWeekServiceStatus(day)}</span>
+                      )}
+                    </li>
+                  ))}
                 </ul>
               </div>
             </article>
@@ -520,8 +812,8 @@ export default async function PublicHomePage() {
               <div>
                 <h3>Actualités</h3>
                 <p>
-                  Envie d&apos;être informé.e en temps réel ? Rejoignez notre page
-                  Facebook pour suivre les actualités.
+                  Envie d&apos;être informé.e en temps réel ? Rejoignez notre
+                  page Facebook pour suivre les actualités.
                 </p>
               </div>
             </article>
@@ -543,7 +835,10 @@ export default async function PublicHomePage() {
 
                 <div>
                   <h3>{todayService.location?.city || "À table tonton !"}</h3>
-                  <p>Les coordonnées GPS du lieu de service seront bientôt publiées.</p>
+                  <p>
+                    Les coordonnées GPS du lieu de service seront bientôt
+                    publiées.
+                  </p>
                 </div>
               </div>
             )}
@@ -589,7 +884,10 @@ export default async function PublicHomePage() {
         ) : null}
       </section>
 
-      <section id="qui-sommes-nous" className="att-home-section att-about-section">
+      <section
+        id="qui-sommes-nous"
+        className="att-home-section att-about-section"
+      >
         <div
           className="att-about-image-wrap"
           style={{
@@ -607,23 +905,24 @@ export default async function PublicHomePage() {
           <h2 className="att-section-title">Qui sommes-nous ?</h2>
 
           <p>
-            À table tonton !, c’est une petite aventure locale portée par Tonton,
-            installé à Marval depuis 2023.
+            À table tonton !, c’est une petite aventure locale portée par
+            Tonton, installé à Marval depuis 2023.
           </p>
 
           <p>
-            Je viens de Grenoble, avec un nom italien dans mon histoire familiale :
-            Di Tucci, du côté de ma mère. Ce n’est ni un label, ni un argument
-            marketing : c’est un hommage. Ma gourmandise naît ici, de son amour,
-            et de l’idée qu’elle m’a transmise : régaler ceux qu’on aime, c’est
-            une façon de le leur dire.
+            Je viens de Grenoble, avec un nom italien dans mon histoire
+            familiale : Di Tucci, du côté de ma mère. Ce n’est ni un label, ni
+            un argument marketing : c’est un hommage. Ma gourmandise naît ici,
+            de son amour, et de l’idée qu’elle m’a transmise : régaler ceux
+            qu’on aime, c’est une façon de le leur dire.
           </p>
 
           <p>
-            Avant d’en arriver là, j’ai travaillé dans plusieurs milieux, parfois
-            dans des conditions difficiles. J’en ai gardé une conviction simple :
-            quand on travaille dur et que chaque euro est compté, on mérite le
-            meilleur : une cuisine sincère, généreuse, faite avec respect.
+            Avant d’en arriver là, j’ai travaillé dans plusieurs milieux,
+            parfois dans des conditions difficiles. J’en ai gardé une conviction
+            simple : quand on travaille dur et que chaque euro est compté, on
+            mérite le meilleur : une cuisine sincère, généreuse, faite avec
+            respect.
           </p>
 
           <p>
@@ -643,25 +942,25 @@ export default async function PublicHomePage() {
 
           <p>
             D’origine britannique, installée sur le territoire depuis près de
-            vingt ans, elle y est un visage bien plus familier que le mien. Après
-            ses toutes premières années en Angleterre, elle a grandi en Bourgogne,
-            dans une famille où la gourmandise et la générosité faisaient partie
-            de l’héritage. Chez elle aussi, bien manger n’a jamais été seulement
-            une affaire de recette : c’est une manière d’accueillir, de
-            transmettre, de prendre soin.
+            vingt ans, elle y est un visage bien plus familier que le mien.
+            Après ses toutes premières années en Angleterre, elle a grandi en
+            Bourgogne, dans une famille où la gourmandise et la générosité
+            faisaient partie de l’héritage. Chez elle aussi, bien manger n’a
+            jamais été seulement une affaire de recette : c’est une manière
+            d’accueillir, de transmettre, de prendre soin.
           </p>
 
           <p>
-            Après plusieurs expériences dans la restauration, elle s’est découverte
-            paysanne. Fromagère reconnue, éleveuse, maman, elle apporte à cette
-            aventure son regard sur les produits, les saisons, le travail concret,
-            et les choses bien faites.
+            Après plusieurs expériences dans la restauration, elle s’est
+            découverte paysanne. Fromagère reconnue, éleveuse, maman, elle
+            apporte à cette aventure son regard sur les produits, les saisons,
+            le travail concret, et les choses bien faites.
           </p>
 
           <p>
-            Elle est aussi la maman de Binette, petite fille géniale qui m’appelle
-            “Tonton”, et qui a donné à ce projet une part de son nom, de sa
-            tendresse, et de son désordre joyeux.
+            Elle est aussi la maman de Binette, petite fille géniale qui
+            m’appelle “Tonton”, et qui a donné à ce projet une part de son nom,
+            de sa tendresse, et de son désordre joyeux.
           </p>
 
           <p>
@@ -669,8 +968,8 @@ export default async function PublicHomePage() {
           </p>
 
           <p>
-            À table tonton ! est né au milieu d’une vie bien réelle, sur une ferme
-            de 13 hectares que nous habitons à plusieurs.
+            À table tonton ! est né au milieu d’une vie bien réelle, sur une
+            ferme de 13 hectares que nous habitons à plusieurs.
           </p>
 
           <p>
@@ -681,25 +980,25 @@ export default async function PublicHomePage() {
           </p>
 
           <p>
-            On y rénove, on y cultive, on y élève, on y apprend à vivre ensemble.
-            Il y a des céréales, quelques légumes, des animaux, des urgences, des
-            saisons qui passent trop vite, des choses qui cassent, des choses qui
-            poussent. Beaucoup d’énergie est mise à faire vivre ce lieu, beaucoup
-            de temps aussi.
+            On y rénove, on y cultive, on y élève, on y apprend à vivre
+            ensemble. Il y a des céréales, quelques légumes, des animaux, des
+            urgences, des saisons qui passent trop vite, des choses qui cassent,
+            des choses qui poussent. Beaucoup d’énergie est mise à faire vivre
+            ce lieu, beaucoup de temps aussi.
           </p>
 
           <p>
-            La ferme n&apos;a pas vocation à fournir la remorque au quotidien : ce
-            n’est ni notre promesse, ni notre échelle. Mais elle raconte quelque
-            chose de notre manière de vivre et de travailler : une attention aux
-            gestes, aux saisons, aux produits et au temps qu’il faut pour essayer
-            de bien faire.
+            La ferme n&apos;a pas vocation à fournir la remorque au quotidien :
+            ce n’est ni notre promesse, ni notre échelle. Mais elle raconte
+            quelque chose de notre manière de vivre et de travailler : une
+            attention aux gestes, aux saisons, aux produits et au temps qu’il
+            faut pour essayer de bien faire.
           </p>
 
           <p>
-            À table tonton !, c’est aussi cela : une petite activité locale, portée
-            par un lieu vivant, une histoire d’amitiés, et l’envie de construire
-            quelque chose ici.
+            À table tonton !, c’est aussi cela : une petite activité locale,
+            portée par un lieu vivant, une histoire d’amitiés, et l’envie de
+            construire quelque chose ici.
           </p>
         </div>
       </section>
@@ -717,25 +1016,25 @@ export default async function PublicHomePage() {
           <p>
             Nous privilégions les circuits courts dès que c’est possible, pour
             travailler avec des producteurs du territoire, leur offrir des
-            débouchés concrets et mettre en valeur leur travail. Quand le local ne
-            suffit pas, nous cherchons des partenaires cohérents : artisans,
+            débouchés concrets et mettre en valeur leur travail. Quand le local
+            ne suffit pas, nous cherchons des partenaires cohérents : artisans,
             filières plus transparentes, productions biologiques quand cela a du
             sens, toujours avec l’idée de limiter les intermédiaires inutiles.
           </p>
 
           <p>
-            Notre carte évolue avec les saisons, les arrivages et les rencontres.
-            Nous voulons cuisiner de très bons produits, sans transformer la
-            qualité en luxe inaccessible. Pour cela, nous faisons des choix
-            simples : une carte courte, moins de gaspillage, des recettes lisibles,
-            et des prix aussi justes que possible.
+            Notre carte évolue avec les saisons, les arrivages et les
+            rencontres. Nous voulons cuisiner de très bons produits, sans
+            transformer la qualité en luxe inaccessible. Pour cela, nous faisons
+            des choix simples : une carte courte, moins de gaspillage, des
+            recettes lisibles, et des prix aussi justes que possible.
           </p>
 
           <p>
             Nous ne prétendons pas avoir déjà trouvé la solution parfaite pour
-            chaque ingrédient. Certaines contraintes de transport, de conservation
-            ou de disponibilité nous obligent encore à faire des compromis. Mais
-            nous préférons les assumer clairement.
+            chaque ingrédient. Certaines contraintes de transport, de
+            conservation ou de disponibilité nous obligent encore à faire des
+            compromis. Mais nous préférons les assumer clairement.
           </p>
 
           <p>

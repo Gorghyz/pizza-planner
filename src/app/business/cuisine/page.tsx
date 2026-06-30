@@ -1,25 +1,55 @@
 import BusinessSectionNav from "@/components/business-navigation";
 import KitchenBoard from "@/components/kitchen-board";
-import { getTodayOrders } from "@/lib/data";
+import { getOrdersForDate } from "@/lib/data";
+import { formatDateLong, getParisDateString, isDateString } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
 
-export default async function BusinessKitchenPage() {
-  const orders = await getTodayOrders();
+type BusinessKitchenPageProps = {
+  searchParams?: Promise<{
+    date?: string;
+  }>;
+};
+
+export default async function BusinessKitchenPage({ searchParams }: BusinessKitchenPageProps) {
+  const params = (await searchParams) ?? {};
+  const requestedDate = typeof params.date === "string" ? params.date.trim() : "";
+  const serviceDate = isDateString(requestedDate) ? requestedDate : getParisDateString();
+  const serviceDateLabel = formatDateLong(serviceDate);
+  const orders = await getOrdersForDate(serviceDate);
 
   return (
     <main className="page kitchen-page">
       <header className="page-header">
         <h1>Vue cuisine</h1>
         <p>
-          Affichage des commandes du jour, triées par heure promise, avec mise à
-          jour du statut.
+          Affichage des commandes par date de service, triées par heure promise,
+          avec mise à jour du statut.
         </p>
 
         <BusinessSectionNav section="orders" currentHref="/business/cuisine" />
       </header>
 
-      <KitchenBoard orders={orders} />
+      <section className="card" style={{ marginBottom: 20 }}>
+        <div className="form-header">
+          <div>
+            <h2>Commandes du {serviceDateLabel}</h2>
+            <p className="small">Sélectionne une autre date pour préparer un service futur.</p>
+          </div>
+
+          <form className="date-selector-form" action="/business/cuisine">
+            <div className="field">
+              <label htmlFor="service-date">Date du service</label>
+              <input id="service-date" name="date" type="date" defaultValue={serviceDate} />
+            </div>
+            <button type="submit" className="secondary">
+              Afficher
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <KitchenBoard orders={orders} serviceDateLabel={serviceDateLabel} />
     </main>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { WEEKDAYS, createDefaultWeekHours } from "@/lib/business-settings";
+import { parseGpsCoordinates } from "@/lib/gps";
 import type { LocationWithHours, OpeningHour } from "@/lib/types";
 
 type BusinessSettingsAdminProps = {
@@ -132,6 +133,7 @@ export default function BusinessSettingsAdmin({
   const [hourRows, setHourRows] = useState<HourFormRow[]>(
     hoursToFormRows(selectedLocation),
   );
+  const [coordinateInput, setCoordinateInput] = useState("");
 
   const [isSavingLocation, setIsSavingLocation] = useState(false);
   const [isSavingHours, setIsSavingHours] = useState(false);
@@ -141,6 +143,7 @@ export default function BusinessSettingsAdmin({
   useEffect(() => {
     setLocationForm(locationToForm(selectedLocation));
     setHourRows(hoursToFormRows(selectedLocation));
+    setCoordinateInput("");
   }, [selectedLocation]);
 
   function upsertLocation(
@@ -186,8 +189,27 @@ export default function BusinessSettingsAdmin({
     setSelectedLocationId("new");
     setLocationForm(locationToForm(null));
     setHourRows(hoursToFormRows(null));
+    setCoordinateInput("");
     setErrorMessage("");
     setSuccessMessage("");
+  }
+
+  function convertCoordinates() {
+    const parsed = parseGpsCoordinates(coordinateInput);
+
+    if (!parsed) {
+      setErrorMessage(`Impossible de lire ces coordonnées. Exemple attendu : 45°38'52.8"N 0°47'53.9"E.`);
+      setSuccessMessage("");
+      return;
+    }
+
+    setLocationForm((previous) => ({
+      ...previous,
+      latitude: parsed.latitudeText,
+      longitude: parsed.longitudeText,
+    }));
+    setErrorMessage("");
+    setSuccessMessage("Coordonnées converties dans les champs latitude et longitude.");
   }
 
   async function handleSaveLocation(event: React.FormEvent<HTMLFormElement>) {
@@ -361,6 +383,31 @@ export default function BusinessSettingsAdmin({
               }
               placeholder="Ex. Place de l'église"
             />
+          </div>
+
+          <div className="field coordinate-converter-field">
+            <label htmlFor="location-coordinates-input">Coordonnées Google à convertir</label>
+            <div className="coordinate-converter-row">
+              <input
+                id="location-coordinates-input"
+                type="text"
+                value={coordinateInput}
+                onChange={(event) => setCoordinateInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    convertCoordinates();
+                  }
+                }}
+                placeholder={`Ex. 45°38'52.8"N 0°47'53.9"E`}
+              />
+              <button type="button" className="secondary" onClick={convertCoordinates}>
+                Convertir
+              </button>
+            </div>
+            <div className="small">
+              Pratique pour coller des coordonnées Google en degrés/minutes/secondes puis remplir automatiquement Latitude et Longitude.
+            </div>
           </div>
 
           <div className="field-grid field-grid-2">

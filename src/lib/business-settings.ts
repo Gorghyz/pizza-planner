@@ -40,6 +40,16 @@ export function getParisIsoWeekday(date = new Date()): number {
   return weekdayNameToIsoWeekday[weekdayName] ?? 1;
 }
 
+export function getIsoWeekdayFromDateString(dateString: string): number {
+  const [year, month, day] = dateString.split("-").map(Number);
+
+  if (!year || !month || !day) {
+    return getParisIsoWeekday();
+  }
+
+  return getParisIsoWeekday(new Date(Date.UTC(year, month - 1, day, 12, 0, 0)));
+}
+
 export function getWeekdayLabel(isoWeekday: number): string {
   return WEEKDAYS.find((day) => day.value === isoWeekday)?.label ?? "Jour inconnu";
 }
@@ -57,6 +67,58 @@ export function createDefaultWeekHours(locationId: number): OpeningHour[] {
     opensAt: DEFAULT_SERVICE_OPENING_TIME,
     closesAt: DEFAULT_SERVICE_CLOSING_TIME,
   }));
+}
+
+export function buildServiceSettingsForDate(
+  locations: LocationWithHours[],
+  serviceDate: string,
+): TodayServiceSettings {
+  const isoWeekday = getIsoWeekdayFromDateString(serviceDate);
+  const weekdayLabel = getWeekdayLabel(isoWeekday);
+
+  const activeLocations = locations.filter((location) => location.isActive);
+
+  const defaultLocation =
+    activeLocations.find((location) => location.isDefault) ??
+    activeLocations[0] ??
+    null;
+
+  const openingRule =
+    defaultLocation?.hours.find((hour) => hour.isoWeekday === isoWeekday) ?? null;
+
+  if (!defaultLocation || !openingRule) {
+    return {
+      location: defaultLocation,
+      isoWeekday,
+      weekdayLabel,
+      isOpen: true,
+      opensAt: DEFAULT_SERVICE_OPENING_TIME,
+      closesAt: DEFAULT_SERVICE_CLOSING_TIME,
+      openingRule: null,
+    };
+  }
+
+  if (!openingRule.isOpen || !openingRule.opensAt || !openingRule.closesAt) {
+    return {
+      location: defaultLocation,
+      isoWeekday,
+      weekdayLabel,
+      isOpen: false,
+      opensAt: DEFAULT_SERVICE_OPENING_TIME,
+      closesAt: DEFAULT_SERVICE_CLOSING_TIME,
+      openingRule,
+    };
+  }
+
+  return {
+    location: defaultLocation,
+    isoWeekday,
+    weekdayLabel,
+    isOpen: true,
+    opensAt: openingRule.opensAt,
+    closesAt: openingRule.closesAt,
+    openingRule,
+  };
 }
 
 export function buildTodayServiceSettings(

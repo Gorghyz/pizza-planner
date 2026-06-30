@@ -1,8 +1,12 @@
+import type { CSSProperties } from "react";
 import type { Metadata } from "next";
+
+import Link from "next/link";
 
 import PublicCarteBuilder from "@/components/public-carte-builder";
 import PublicSiteShell from "@/components/public-site-shell";
 import { getActivePizzas } from "@/lib/data";
+import { getVisiblePublishedEvents } from "@/lib/events";
 import type { Pizza } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +28,18 @@ export const metadata: Metadata = {
     type: "website",
   },
 };
+
+
+function getCalloutImageStyle(index: number, imageCount: number): CSSProperties {
+  if (imageCount <= 1) {
+    return {};
+  }
+
+  return {
+    animationDelay: `${index * 4}s`,
+    animationDuration: `${imageCount * 4}s`,
+  };
+}
 
 function buildMenuStructuredData(pizzas: Pizza[]) {
   return {
@@ -62,7 +78,10 @@ function buildMenuStructuredData(pizzas: Pizza[]) {
 }
 
 export default async function CartePage() {
-  const pizzas = await getActivePizzas();
+  const [pizzas, events] = await Promise.all([
+    getActivePizzas(),
+    getVisiblePublishedEvents(),
+  ]);
   const menuStructuredData = buildMenuStructuredData(pizzas);
 
   return (
@@ -108,6 +127,52 @@ export default async function CartePage() {
           }}
         />
       </section>
+
+      {events.length > 0 ? (
+        <section className="att-event-callout-list" aria-label="Événements à venir">
+          {events.map((event) => (
+            <Link
+              key={event.id}
+              href={`/evenements/${event.slug}`}
+              className="att-event-callout"
+            >
+              <div className="att-event-callout-copy">
+                <strong>{event.title}</strong>
+                <span>
+                  {event.serviceDateLabel} · {event.opensAt} → {event.closesAt}
+                </span>
+                <em>
+                  {event.isOrderingOpenNow
+                    ? "Précommande ouverte"
+                    : "Voir les informations de l’événement"}
+                </em>
+              </div>
+
+              {event.images.length > 0 ? (
+                <div className="att-event-callout-gallery" aria-hidden="true">
+                  {event.images.map((image, index) => (
+                    <img
+                      key={`${image.id}-${image.imagePath}`}
+                      src={image.imagePath}
+                      alt=""
+                      className={
+                        event.images.length > 1
+                          ? "att-event-callout-gallery-image"
+                          : "att-event-callout-gallery-image att-event-callout-gallery-image-static"
+                      }
+                      style={getCalloutImageStyle(index, event.images.length)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="att-event-callout-doodle" aria-hidden="true">
+                  <span />
+                </div>
+              )}
+            </Link>
+          ))}
+        </section>
+      ) : null}
 
       <PublicCarteBuilder pizzas={pizzas} />
 

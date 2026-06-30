@@ -1,5 +1,8 @@
 import { pool, query } from "@/lib/db";
+import { applyCalendarExceptionToServiceSettings, getCalendarExceptionForDate } from "@/lib/business-calendar";
+import { formatDateLong, getParisDateString } from "@/lib/dates";
 import {
+  buildServiceSettingsForDate,
   buildTodayServiceSettings,
   createDefaultWeekHours,
   sortOpeningHours,
@@ -32,6 +35,7 @@ const pizzaSelectFields = `
   id,
   name,
   active,
+  is_classic AS "isClassic",
   display_order AS "displayOrder",
   prep_minutes AS "prepMinutes",
   ingredients,
@@ -51,19 +55,23 @@ const pizzaPhotoSelectFields = `
 `;
 
 const customerRequestSelectFields = `
-  id,
-  customer_name AS "customerName",
-  customer_phone AS "customerPhone",
-  TO_CHAR(desired_time, 'HH24:MI') AS "desiredTime",
-  TO_CHAR(selected_slot, 'HH24:MI') AS "selectedSlot",
-  notes,
-  item_summary AS "itemSummary",
-  total_pizzas AS "totalPizzas",
-  total_price_cents AS "totalPriceCents",
-  total_minutes AS "totalMinutes",
-  source,
-  status,
-  TO_CHAR(created_at AT TIME ZONE '${PARIS_TIME_ZONE_SQL}', 'DD/MM/YYYY HH24:MI') AS "createdAt"
+  cr.id,
+  TO_CHAR(cr.service_date, 'YYYY-MM-DD') AS "serviceDate",
+  cr.event_id AS "eventId",
+  be.title AS "eventTitle",
+  cr.customer_name AS "customerName",
+  cr.customer_phone AS "customerPhone",
+  TO_CHAR(cr.desired_time, 'HH24:MI') AS "desiredTime",
+  TO_CHAR(cr.selected_slot, 'HH24:MI') AS "selectedSlot",
+  cr.notes,
+  cr.item_summary AS "itemSummary",
+  cr.total_pizzas AS "totalPizzas",
+  cr.total_price_cents AS "totalPriceCents",
+  cr.total_minutes AS "totalMinutes",
+  cr.source,
+  cr.status,
+  TO_CHAR(cr.created_at AT TIME ZONE '${PARIS_TIME_ZONE_SQL}', 'YYYY-MM-DD') AS "createdDate",
+  TO_CHAR(cr.created_at AT TIME ZONE '${PARIS_TIME_ZONE_SQL}', 'DD/MM/YYYY HH24:MI') AS "createdAt"
 `;
 
 const businessLocationSelectFields = `
@@ -90,6 +98,8 @@ const openingHourSelectFields = `
 
 export type CustomerRequestForConversion = {
   id: number;
+  serviceDate: string;
+  eventId: number | null;
   customerName: string;
   customerPhone: string;
   desiredTime: string;
@@ -105,6 +115,8 @@ export type CustomerRequestForConversion = {
 };
 
 type CreateOrderInput = {
+  serviceDate?: string;
+  eventId?: number | null;
   customerName: string;
   desiredTime: string;
   promisedTime: string;
@@ -124,6 +136,7 @@ type PizzaWriteInput = {
   description: string;
   allergens: string;
   active: boolean;
+  isClassic: boolean;
   photoPath: string | null;
   priceCents: number;
   seasonality: string;
@@ -137,6 +150,8 @@ type PizzaPhotoWriteInput = {
 };
 
 type CreateCustomerRequestInput = {
+  serviceDate: string;
+  eventId?: number | null;
   customerName: string;
   customerPhone: string;
   desiredTime: string;
@@ -227,6 +242,20 @@ async function attachPhotosToPizzas(pizzas: Pizza[]): Promise<Pizza[]> {
       photos: fallbackPhoto ? [fallbackPhoto] : photos,
     };
   });
+}
+
+function addCustomerRequestDateLabels(rows: CustomerRequest[]): CustomerRequest[] {
+  return rows.map((request) => ({
+    ...request,
+    serviceDateLabel: formatDateLong(request.serviceDate),
+  }));
+}
+
+function addOrderDateLabels(rows: TodayOrder[]): TodayOrder[] {
+  return rows.map((order) => ({
+    ...order,
+    serviceDateLabel: formatDateLong(order.serviceDate),
+  }));
 }
 
 async function getPizzaById(pizzaId: number): Promise<Pizza | null> {
@@ -324,6 +353,25 @@ export async function getPizzasByIds(ids: number[]): Promise<Pizza[]> {
   return attachPhotosToPizzas(result.rows as Pizza[]);
 }
 
+export async function getOccupancyForDate(
+  serviceDate: string,
+): Promise<OccupancyOrder[]> {
+  const result = await query(
+    `
+      SELECT
+        id,
+        TO_CHAR(promised_time, 'HH24:MI') AS "promisedTime",
+        total_minutes AS "totalMinutes"
+      FROM orders
+      WHERE service_date = $1::date
+      ORDER BY promised_time, id;
+    `,
+    [serviceDate],
+  );
+
+  return result.rows;
+}
+
 export async function getTodayOccupancy(): Promise<OccupancyOrder[]> {
   const result = await query(`
     SELECT
@@ -338,10 +386,59 @@ export async function getTodayOccupancy(): Promise<OccupancyOrder[]> {
   return result.rows;
 }
 
+export async function getOrdersForDate(
+  serviceDate: string,
+): Promise<TodayOrder[]> {
+  const result = await query(
+    `
+      SELECT
+        o.id,
+        TO_CHAR(o.service_date, 'YYYY-MM-DD') AS "serviceDate",
+        be.title AS "eventTitle",
+        o.customer_name AS "customerName",
+        TO_CHAR(o.desired_time, 'HH24:MI') AS "desiredTime",
+        TO_CHAR(o.promised_time, 'HH24:MI') AS "promisedTime",
+        o.total_minutes AS "totalMinutes",
+        o.notes,
+        o.status,
+        STRING_AGG(
+          CASE
+            WHEN COALESCE(oi.comment, '') <> ''
+              THEN oi.quantity || ' x ' || p.name || ' (' || oi.comment || ')'
+            ELSE oi.quantity || ' x ' || p.name
+          END,
+          ', '
+          ORDER BY p.display_order, p.name
+        ) AS "itemSummary"
+      FROM orders o
+      JOIN order_items oi ON oi.order_id = o.id
+      JOIN pizzas p ON p.id = oi.pizza_id
+      LEFT JOIN business_events be ON be.id = o.event_id
+      WHERE o.service_date = $1::date
+      GROUP BY
+        o.id,
+        o.service_date,
+        be.title,
+        o.customer_name,
+        o.desired_time,
+        o.promised_time,
+        o.total_minutes,
+        o.notes,
+        o.status
+      ORDER BY o.promised_time, o.id;
+    `,
+    [serviceDate],
+  );
+
+  return addOrderDateLabels(result.rows as TodayOrder[]);
+}
+
 export async function getTodayOrders(): Promise<TodayOrder[]> {
   const result = await query(`
     SELECT
       o.id,
+      TO_CHAR(o.service_date, 'YYYY-MM-DD') AS "serviceDate",
+      be.title AS "eventTitle",
       o.customer_name AS "customerName",
       TO_CHAR(o.desired_time, 'HH24:MI') AS "desiredTime",
       TO_CHAR(o.promised_time, 'HH24:MI') AS "promisedTime",
@@ -360,9 +457,12 @@ export async function getTodayOrders(): Promise<TodayOrder[]> {
     FROM orders o
     JOIN order_items oi ON oi.order_id = o.id
     JOIN pizzas p ON p.id = oi.pizza_id
+    LEFT JOIN business_events be ON be.id = o.event_id
     WHERE o.service_date = ${PARIS_CURRENT_DATE_SQL}
     GROUP BY
       o.id,
+      o.service_date,
+      be.title,
       o.customer_name,
       o.desired_time,
       o.promised_time,
@@ -372,24 +472,53 @@ export async function getTodayOrders(): Promise<TodayOrder[]> {
     ORDER BY o.promised_time, o.id;
   `);
 
-  return result.rows;
+  return addOrderDateLabels(result.rows as TodayOrder[]);
 }
 
 export async function getCustomerRequests(): Promise<CustomerRequest[]> {
   const result = await query(`
     SELECT ${customerRequestSelectFields}
-    FROM customer_requests
-    WHERE (created_at AT TIME ZONE '${PARIS_TIME_ZONE_SQL}')::date = ${PARIS_CURRENT_DATE_SQL}
+    FROM customer_requests cr
+    LEFT JOIN business_events be ON be.id = cr.event_id
+    WHERE (
+        cr.event_id IS NULL
+        AND cr.service_date = ${PARIS_CURRENT_DATE_SQL}
+        AND (cr.created_at AT TIME ZONE '${PARIS_TIME_ZONE_SQL}')::date = ${PARIS_CURRENT_DATE_SQL}
+      )
+      OR (
+        cr.event_id IS NOT NULL
+        AND cr.service_date >= ${PARIS_CURRENT_DATE_SQL}
+        AND cr.status <> 'resolved'
+      )
     ORDER BY
-      CASE status
+      cr.service_date,
+      COALESCE(be.title, ''),
+      CASE cr.status
         WHEN 'new' THEN 0
         WHEN 'contacted' THEN 1
         ELSE 2
       END,
-      created_at DESC;
+      cr.selected_slot,
+      cr.created_at DESC;
   `);
 
-  return result.rows;
+  return addCustomerRequestDateLabels(result.rows as CustomerRequest[]);
+}
+
+export async function getCustomerRequestById(
+  requestId: number,
+): Promise<CustomerRequest | null> {
+  const result = await query(
+    `
+      SELECT ${customerRequestSelectFields}
+      FROM customer_requests cr
+      LEFT JOIN business_events be ON be.id = cr.event_id
+      WHERE cr.id = $1;
+    `,
+    [requestId],
+  );
+
+  return addCustomerRequestDateLabels(result.rows as CustomerRequest[])[0] ?? null;
 }
 
 export async function getCustomerRequestByIdForConversion(
@@ -399,6 +528,8 @@ export async function getCustomerRequestByIdForConversion(
     `
       SELECT
         id,
+        TO_CHAR(service_date, 'YYYY-MM-DD') AS "serviceDate",
+        event_id AS "eventId",
         customer_name AS "customerName",
         customer_phone AS "customerPhone",
         TO_CHAR(desired_time, 'HH24:MI') AS "desiredTime",
@@ -482,9 +613,30 @@ export async function getPublicLocationsWithHours(): Promise<
 }
 
 export async function getTodayServiceSettings(): Promise<TodayServiceSettings> {
-  const locations = await getBusinessLocationsWithHours();
+  const serviceDate = getParisDateString();
+  const [locations, exception] = await Promise.all([
+    getBusinessLocationsWithHours(),
+    getCalendarExceptionForDate(serviceDate),
+  ]);
 
-  return buildTodayServiceSettings(locations);
+  return applyCalendarExceptionToServiceSettings(
+    buildTodayServiceSettings(locations),
+    exception,
+  );
+}
+
+export async function getServiceSettingsForDate(
+  serviceDate: string,
+): Promise<TodayServiceSettings> {
+  const [locations, exception] = await Promise.all([
+    getBusinessLocationsWithHours(),
+    getCalendarExceptionForDate(serviceDate),
+  ]);
+
+  return applyCalendarExceptionToServiceSettings(
+    buildServiceSettingsForDate(locations, serviceDate),
+    exception,
+  );
 }
 
 export async function createPizza(input: PizzaWriteInput): Promise<Pizza> {
@@ -497,6 +649,7 @@ export async function createPizza(input: PizzaWriteInput): Promise<Pizza> {
       INSERT INTO pizzas (
         name,
         active,
+        is_classic,
         display_order,
         prep_minutes,
         ingredients,
@@ -509,20 +662,22 @@ export async function createPizza(input: PizzaWriteInput): Promise<Pizza> {
       SELECT
         $1,
         $2,
-        next_order.value,
         $3,
+        next_order.value,
         $4,
         $5,
         $6,
         $7,
         $8,
-        $9
+        $9,
+        $10
       FROM next_order
       RETURNING ${pizzaSelectFields};
     `,
     [
       input.name,
       input.active,
+      input.isClassic,
       input.prepMinutes,
       input.ingredients,
       input.description,
@@ -546,13 +701,14 @@ export async function updatePizza(
       SET
         name = $2,
         active = $3,
-        prep_minutes = $4,
-        ingredients = $5,
-        description = $6,
-        allergens = $7,
-        photo_path = $8,
-        price_cents = $9,
-        seasonality = $10
+        is_classic = $4,
+        prep_minutes = $5,
+        ingredients = $6,
+        description = $7,
+        allergens = $8,
+        photo_path = $9,
+        price_cents = $10,
+        seasonality = $11
       WHERE id = $1
       RETURNING ${pizzaSelectFields};
     `,
@@ -560,6 +716,7 @@ export async function updatePizza(
       pizzaId,
       input.name,
       input.active,
+      input.isClassic,
       input.prepMinutes,
       input.ingredients,
       input.description,
@@ -874,9 +1031,11 @@ export async function saveOpeningHours(
 export async function createCustomerRequest(
   input: CreateCustomerRequestInput,
 ): Promise<CustomerRequest> {
-  const result = await query(
+  const result = await query<{ id: number }>(
     `
       INSERT INTO customer_requests (
+        service_date,
+        event_id,
         customer_name,
         customer_phone,
         desired_time,
@@ -890,21 +1049,25 @@ export async function createCustomerRequest(
         source
       )
       VALUES (
-        $1,
+        $1::date,
         $2,
-        $3::time,
-        $4::time,
-        $5,
-        $6,
-        $7::jsonb,
+        $3,
+        $4,
+        $5::time,
+        $6::time,
+        $7,
         $8,
-        $9,
+        $9::jsonb,
         $10,
-        $11
+        $11,
+        $12,
+        $13
       )
-      RETURNING ${customerRequestSelectFields};
+      RETURNING id;
     `,
     [
+      input.serviceDate,
+      input.eventId ?? null,
       input.customerName,
       input.customerPhone,
       input.desiredTime,
@@ -919,7 +1082,13 @@ export async function createCustomerRequest(
     ],
   );
 
-  return result.rows[0];
+  const customerRequest = await getCustomerRequestById(result.rows[0].id);
+
+  if (!customerRequest) {
+    throw new Error("Demande introuvable après enregistrement.");
+  }
+
+  return customerRequest;
 }
 
 export async function updateCustomerRequestStatus(
@@ -933,6 +1102,25 @@ export async function updateCustomerRequestStatus(
       WHERE id = $1;
     `,
     [requestId, status],
+  );
+
+  return (result.rowCount ?? 0) > 0;
+}
+
+export async function updateCustomerRequestSlot(
+  requestId: number,
+  selectedSlot: string,
+): Promise<boolean> {
+  const result = await query(
+    `
+      UPDATE customer_requests
+      SET
+        desired_time = $2::time,
+        selected_slot = $2::time
+      WHERE id = $1
+        AND status <> 'resolved';
+    `,
+    [requestId, selectedSlot],
   );
 
   return (result.rowCount ?? 0) > 0;
@@ -964,6 +1152,7 @@ export async function createOrder(input: CreateOrderInput): Promise<number> {
       `
         INSERT INTO orders (
           service_date,
+          event_id,
           customer_name,
           desired_time,
           promised_time,
@@ -971,16 +1160,19 @@ export async function createOrder(input: CreateOrderInput): Promise<number> {
           notes
         )
         VALUES (
-          ${PARIS_CURRENT_DATE_SQL},
-          $1,
-          $2::time,
-          $3::time,
-          $4,
-          $5
+          COALESCE($1::date, ${PARIS_CURRENT_DATE_SQL}),
+          $2,
+          $3,
+          $4::time,
+          $5::time,
+          $6,
+          $7
         )
         RETURNING id;
       `,
       [
+        input.serviceDate ?? null,
+        input.eventId ?? null,
         input.customerName,
         input.desiredTime,
         input.promisedTime,

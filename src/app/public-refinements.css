@@ -32,6 +32,23 @@
   font-weight: 900;
 }
 
+
+.att-week-event-link {
+  color: #111111;
+  font-weight: 950;
+  text-align: right;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
+.att-week-event-link:hover,
+.att-week-event-link:focus-visible {
+  background: #111111;
+  color: #fffdf8;
+  outline: 0;
+}
+
 .att-info-facebook {
   width: 42px;
   height: 42px;

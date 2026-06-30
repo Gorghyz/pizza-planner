@@ -43,6 +43,18 @@ const SITE_ADMIN_LINKS = [
       "Ajouter les bandeaux de pizzas et choisir l'image active sur la page d'accueil.",
   },
   {
+    href: "/business/evenements",
+    title: "Événements",
+    description:
+      "Créer les ouvertures spéciales, leurs images, leur carte dédiée et leurs précommandes.",
+  },
+  {
+    href: "/business/calendrier",
+    title: "Calendrier d'ouverture",
+    description:
+      "Voir les jours ouverts, poser des fermetures exceptionnelles et ajouter des ouvertures ponctuelles.",
+  },
+  {
     href: "/business/admin",
     title: "Réglages business",
     description:

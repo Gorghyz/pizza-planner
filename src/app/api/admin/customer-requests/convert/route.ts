@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import {
   createOrder,
   getCustomerRequestByIdForConversion,
+  getOccupancyForDate,
   getPizzasByIds,
-  getTodayOccupancy,
   updateCustomerRequestStatus,
 } from "@/lib/data";
+import { getBusinessEventById } from "@/lib/events";
 import { suggestSlots } from "@/lib/scheduler";
 
 export const runtime = "nodejs";
@@ -56,12 +57,17 @@ export async function POST(request: Request) {
     }
 
     const pizzaMap = new Map(pizzas.map((pizza) => [pizza.id, pizza]));
+    const event = customerRequest.eventId
+      ? await getBusinessEventById(customerRequest.eventId)
+      : null;
 
-    const occupancy = await getTodayOccupancy();
+    const occupancy = await getOccupancyForDate(customerRequest.serviceDate);
     const slots = suggestSlots({
       desiredTime: customerRequest.desiredTime,
       totalMinutes: customerRequest.totalMinutes,
       orders: occupancy,
+      serviceOpeningTime: event?.opensAt,
+      serviceClosingTime: event?.closesAt,
     });
 
     if (!slots.includes(customerRequest.selectedSlot)) {
@@ -75,6 +81,8 @@ export async function POST(request: Request) {
     }
 
     const orderId = await createOrder({
+      serviceDate: customerRequest.serviceDate,
+      eventId: customerRequest.eventId,
       customerName: customerRequest.customerName,
       desiredTime: customerRequest.desiredTime,
       promisedTime: customerRequest.selectedSlot,

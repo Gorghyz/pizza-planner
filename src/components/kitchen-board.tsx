@@ -6,6 +6,7 @@ import type { OrderStatus, TodayOrder } from "@/lib/types";
 
 type KitchenBoardProps = {
   orders: TodayOrder[];
+  serviceDateLabel: string;
 };
 
 type ApiResponse = {
@@ -58,7 +59,7 @@ async function readJsonResponse<T>(response: Response): Promise<T> {
   return JSON.parse(raw) as T;
 }
 
-export default function KitchenBoard({ orders }: KitchenBoardProps) {
+export default function KitchenBoard({ orders, serviceDateLabel }: KitchenBoardProps) {
   const router = useRouter();
   const [now, setNow] = useState(new Date());
   const [errorMessage, setErrorMessage] = useState("");
@@ -137,7 +138,7 @@ export default function KitchenBoard({ orders }: KitchenBoardProps) {
 
       {orders.length === 0 ? (
         <div className="card">
-          <p className="empty">Aucune commande enregistrée pour aujourd&apos;hui.</p>
+          <p className="empty">Aucune commande enregistrée pour cette date.</p>
         </div>
       ) : (
         <div className="kitchen-grid">
@@ -150,6 +151,9 @@ export default function KitchenBoard({ orders }: KitchenBoardProps) {
                 <div>
                   <div className="kitchen-time">{order.promisedTime}</div>
                   <div className="small">
+                    {serviceDateLabel}
+                    {order.eventTitle ? ` · ${order.eventTitle}` : ""}
+                    {" · "}
                     Début théorique :{" "}
                     {new Date(
                       new Date().setHours(0, 0, 0, 0),

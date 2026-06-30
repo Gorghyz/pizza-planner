@@ -2,11 +2,13 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { SERVICE_OPENING_TIME } from "@/lib/config";
 import type { DraftItem, Pizza, QuoteResponse } from "@/lib/types";
 
 type OrderScreenProps = {
   pizzas: Pizza[];
+  serviceDate: string;
+  serviceOpeningTime: string;
+  serviceLabel: string;
 };
 
 type ApiErrorResponse = {
@@ -35,17 +37,20 @@ async function readJsonResponse<T>(response: Response): Promise<T> {
       );
     }
 
-    throw new Error(
-      `Réponse invalide du serveur : ${raw.slice(0, 200)}`
-    );
+    throw new Error(`Réponse invalide du serveur : ${raw.slice(0, 200)}`);
   }
 }
 
-export default function OrderScreen({ pizzas }: OrderScreenProps) {
+export default function OrderScreen({
+  pizzas,
+  serviceDate,
+  serviceOpeningTime,
+  serviceLabel,
+}: OrderScreenProps) {
   const router = useRouter();
 
   const [customerName, setCustomerName] = useState("");
-  const [desiredTime, setDesiredTime] = useState(SERVICE_OPENING_TIME);
+  const [desiredTime, setDesiredTime] = useState(serviceOpeningTime);
   const [notes, setNotes] = useState("");
   const [quantities, setQuantities] = useState<Record<number, number>>({});
   const [lineComments, setLineComments] = useState<Record<number, string>>({});
@@ -89,8 +94,7 @@ export default function OrderScreen({ pizzas }: OrderScreenProps) {
 
     setQuantities((previous) => ({
       ...previous,
-      [pizzaId]:
-        Number.isFinite(value) && value > 0 ? Math.floor(value) : 0,
+      [pizzaId]: Number.isFinite(value) && value > 0 ? Math.floor(value) : 0,
     }));
 
     clearMessages();
@@ -126,13 +130,12 @@ export default function OrderScreen({ pizzas }: OrderScreenProps) {
         },
         body: JSON.stringify({
           desiredTime,
+          serviceDate,
           items,
         }),
       });
 
-      const data = await readJsonResponse<QuoteResponse & ApiErrorResponse>(
-        response
-      );
+      const data = await readJsonResponse<QuoteResponse & ApiErrorResponse>(response);
 
       if (!response.ok) {
         throw new Error(data.error || "Erreur de calcul des créneaux.");
@@ -145,9 +148,7 @@ export default function OrderScreen({ pizzas }: OrderScreenProps) {
       }
     } catch (error) {
       setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Erreur de calcul des créneaux."
+        error instanceof Error ? error.message : "Erreur de calcul des créneaux."
       );
     } finally {
       setIsQuoting(false);
@@ -184,6 +185,7 @@ export default function OrderScreen({ pizzas }: OrderScreenProps) {
           customerName,
           desiredTime,
           promisedTime: selectedSlot,
+          serviceDate,
           notes,
           items,
         }),
@@ -196,12 +198,12 @@ export default function OrderScreen({ pizzas }: OrderScreenProps) {
       }
 
       setCustomerName("");
-      setDesiredTime(SERVICE_OPENING_TIME);
+      setDesiredTime(serviceOpeningTime);
       setNotes("");
       setQuantities({});
       setLineComments({});
       clearQuote();
-      setSuccessMessage("Commande enregistrée.");
+      setSuccessMessage(`Commande enregistrée pour ${serviceLabel}.`);
       router.refresh();
     } catch (error) {
       setErrorMessage(
@@ -214,6 +216,14 @@ export default function OrderScreen({ pizzas }: OrderScreenProps) {
 
   return (
     <div className="form-stack">
+      <div className="info-box">
+        <strong>Service sélectionné</strong>
+        <div>{serviceLabel}</div>
+        <div className="small">
+          Les commandes saisies ici seront enregistrées pour cette date.
+        </div>
+      </div>
+
       <div className="field-grid">
         <div className="field">
           <label htmlFor="customerName">Nom ou prénom</label>
@@ -264,9 +274,7 @@ export default function OrderScreen({ pizzas }: OrderScreenProps) {
                   min="0"
                   step="1"
                   value={quantities[pizza.id] ?? 0}
-                  onChange={(event) =>
-                    handleQuantityChange(pizza.id, event.target.value)
-                  }
+                  onChange={(event) => handleQuantityChange(pizza.id, event.target.value)}
                 />
               </div>
 
@@ -276,9 +284,7 @@ export default function OrderScreen({ pizzas }: OrderScreenProps) {
                   id={`comment-${pizza.id}`}
                   type="text"
                   value={lineComments[pizza.id] ?? ""}
-                  onChange={(event) =>
-                    handleCommentChange(pizza.id, event.target.value)
-                  }
+                  onChange={(event) => handleCommentChange(pizza.id, event.target.value)}
                   placeholder="Ex. sans oignons"
                 />
               </div>
@@ -329,13 +335,8 @@ export default function OrderScreen({ pizzas }: OrderScreenProps) {
         </button>
       </div>
 
-      {errorMessage ? (
-        <div className="message error">{errorMessage}</div>
-      ) : null}
-
-      {successMessage ? (
-        <div className="message success">{successMessage}</div>
-      ) : null}
+      {errorMessage ? <div className="message error">{errorMessage}</div> : null}
+      {successMessage ? <div className="message success">{successMessage}</div> : null}
 
       {quote ? (
         <div className="info-box">
@@ -343,9 +344,7 @@ export default function OrderScreen({ pizzas }: OrderScreenProps) {
           <div className="small">Charge calculée : {quote.totalMinutes} min</div>
 
           {quote.slots.length === 0 ? (
-            <p className="empty">
-              Aucun créneau disponible ce soir avec cette charge.
-            </p>
+            <p className="empty">Aucun créneau disponible pour cette date avec cette charge.</p>
           ) : (
             <div className="slot-list" style={{ marginTop: 12 }}>
               {quote.slots.map((slot) => (

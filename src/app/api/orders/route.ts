@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 
-import { SERVICE_OPENING_TIME } from "@/lib/config";
-import { createOrder, getPizzasByIds, getTodayOccupancy } from "@/lib/data";
+import { createOrder, getOccupancyForDate, getPizzasByIds, getServiceSettingsForDate } from "@/lib/data";
+import { formatDateLong, getParisDateString, isDateString } from "@/lib/dates";
+import { getBusinessEventById } from "@/lib/events";
 import { notifyOrderCreated } from "@/lib/notifications";
 import { suggestSlots } from "@/lib/scheduler";
 import type { DraftItem } from "@/lib/types";
@@ -53,14 +54,35 @@ export async function POST(request: Request) {
       promisedTime?: unknown;
       notes?: unknown;
       items?: unknown;
+      serviceDate?: unknown;
+      eventId?: unknown;
     };
 
     const customerName =
       typeof body.customerName === "string" ? body.customerName.trim() : "";
+    const serviceDateCandidate =
+      typeof body.serviceDate === "string" ? body.serviceDate.trim() : "";
+    const serviceDate = isDateString(serviceDateCandidate)
+      ? serviceDateCandidate
+      : getParisDateString();
+    const eventId = Number(body.eventId);
+    const normalizedEventId = Number.isInteger(eventId) && eventId > 0 ? eventId : null;
+    const event = normalizedEventId ? await getBusinessEventById(normalizedEventId) : null;
+    const service = event ? null : await getServiceSettingsForDate(serviceDate);
+
+    if (!event && service && !service.isOpen) {
+      return NextResponse.json(
+        {
+          error: `Le service est fermé le ${formatDateLong(serviceDate)} (${service.weekdayLabel}).`,
+        },
+        { status: 409 },
+      );
+    }
+
     const desiredTime =
       typeof body.desiredTime === "string" && body.desiredTime.trim() !== ""
         ? body.desiredTime
-        : SERVICE_OPENING_TIME;
+        : event?.opensAt ?? service?.opensAt ?? "18:30";
     const promisedTime =
       typeof body.promisedTime === "string" ? body.promisedTime.trim() : "";
     const notes = typeof body.notes === "string" ? body.notes.trim() : "";
@@ -121,12 +143,14 @@ export async function POST(request: Request) {
       return sum + pizza.priceCents * item.quantity;
     }, 0);
 
-    const orders = await getTodayOccupancy();
+    const orders = await getOccupancyForDate(serviceDate);
 
     const slots = suggestSlots({
       desiredTime,
       totalMinutes,
       orders,
+      serviceOpeningTime: event?.opensAt ?? service?.opensAt,
+      serviceClosingTime: event?.closesAt ?? service?.closesAt,
     });
 
     if (!slots.includes(promisedTime)) {
@@ -139,6 +163,8 @@ export async function POST(request: Request) {
     }
 
     const orderId = await createOrder({
+      serviceDate,
+      eventId: event?.id ?? null,
       customerName,
       desiredTime,
       promisedTime,
@@ -163,6 +189,8 @@ export async function POST(request: Request) {
       totalPizzas,
       totalPriceCents,
       promisedTime,
+      serviceDate: formatDateLong(serviceDate),
+      eventTitle: event?.title,
     });
 
     return NextResponse.json({ ok: true, orderId });
