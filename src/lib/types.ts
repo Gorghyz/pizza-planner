@@ -3,6 +3,14 @@ export type OrderStatus = "new" | "in_progress" | "ready" | "completed";
 export type CustomerRequestStatus = "new" | "contacted" | "resolved";
 export type CustomerRequestSource = "desktop" | "mobile";
 
+export type PizzaPhoto = {
+  id: number;
+  pizzaId: number;
+  imagePath: string;
+  altText: string;
+  displayOrder: number;
+};
+
 export type Pizza = {
   id: number;
   name: string;
@@ -13,6 +21,7 @@ export type Pizza = {
   description: string;
   allergens: string;
   photoPath: string | null;
+  photos: PizzaPhoto[];
   priceCents: number;
   seasonality: string;
 };

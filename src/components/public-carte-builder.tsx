@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import PizzaPhotoGallery from "@/components/pizza-photo-gallery";
+import type { PizzaGalleryImage } from "@/components/pizza-photo-gallery";
 import type { DraftItem, Pizza, QuoteResponse } from "@/lib/types";
 
 type PublicCarteBuilderProps = {
@@ -123,6 +125,27 @@ async function readJsonResponse<T>(response: Response): Promise<T> {
   }
 
   return JSON.parse(raw) as T;
+}
+
+function getPizzaGalleryImages(pizza: Pizza): PizzaGalleryImage[] {
+  const photos = pizza.photos.length > 0
+    ? pizza.photos
+    : pizza.photoPath
+      ? [
+          {
+            id: 0,
+            pizzaId: pizza.id,
+            imagePath: pizza.photoPath,
+            altText: pizza.name,
+            displayOrder: 0,
+          },
+        ]
+      : [];
+
+  return photos.map((photo) => ({
+    src: photo.imagePath,
+    alt: photo.altText || pizza.name,
+  }));
 }
 
 function groupPizzas(pizzas: Pizza[]): PizzaGroup[] {
@@ -513,18 +536,10 @@ export default function PublicCarteBuilder({ pizzas }: PublicCarteBuilderProps) 
 
                   return (
                     <article key={pizza.id} className="att-pizza-card">
-                      {pizza.photoPath ? (
-                        <img
-                          src={pizza.photoPath}
-                          alt={pizza.name}
-                          className="att-pizza-photo"
-                        />
-                      ) : (
-                        <div
-                          className="att-pizza-photo-placeholder"
-                          aria-hidden="true"
-                        />
-                      )}
+                      <PizzaPhotoGallery
+                        pizzaName={pizza.name}
+                        images={getPizzaGalleryImages(pizza)}
+                      />
 
                       <div className="att-pizza-card-body">
                         <h3>{pizza.name}</h3>

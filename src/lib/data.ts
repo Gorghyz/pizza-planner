@@ -20,6 +20,7 @@ import type {
   OpeningHour,
   OrderStatus,
   Pizza,
+  PizzaPhoto,
   TodayOrder,
   TodayServiceSettings,
 } from "@/lib/types";
@@ -39,6 +40,14 @@ const pizzaSelectFields = `
   photo_path AS "photoPath",
   price_cents AS "priceCents",
   seasonality
+`;
+
+const pizzaPhotoSelectFields = `
+  id,
+  pizza_id AS "pizzaId",
+  image_path AS "imagePath",
+  alt_text AS "altText",
+  display_order AS "displayOrder"
 `;
 
 const customerRequestSelectFields = `
@@ -120,6 +129,13 @@ type PizzaWriteInput = {
   seasonality: string;
 };
 
+type PizzaPhotoWriteInput = {
+  id?: number;
+  imagePath: string;
+  altText: string;
+  displayOrder: number;
+};
+
 type CreateCustomerRequestInput = {
   customerName: string;
   customerPhone: string;
@@ -151,6 +167,82 @@ type OpeningHourWriteInput = {
   opensAt: string | null;
   closesAt: string | null;
 };
+
+
+function sortPizzaPhotos(photos: PizzaPhoto[]): PizzaPhoto[] {
+  return [...photos].sort((a, b) => {
+    if (a.displayOrder !== b.displayOrder) {
+      return a.displayOrder - b.displayOrder;
+    }
+
+    return a.id - b.id;
+  });
+}
+
+function getFallbackPhoto(pizza: Pizza): PizzaPhoto | null {
+  if (!pizza.photoPath) {
+    return null;
+  }
+
+  return {
+    id: 0,
+    pizzaId: pizza.id,
+    imagePath: pizza.photoPath,
+    altText: pizza.name,
+    displayOrder: 0,
+  };
+}
+
+async function attachPhotosToPizzas(pizzas: Pizza[]): Promise<Pizza[]> {
+  if (pizzas.length === 0) {
+    return pizzas;
+  }
+
+  const pizzaIds = pizzas.map((pizza) => pizza.id);
+  const result = await query(
+    `
+      SELECT ${pizzaPhotoSelectFields}
+      FROM pizza_photos
+      WHERE pizza_id = ANY($1::int[])
+      ORDER BY pizza_id, display_order, id;
+    `,
+    [pizzaIds],
+  );
+
+  const photosByPizzaId = new Map<number, PizzaPhoto[]>();
+
+  for (const photo of result.rows as PizzaPhoto[]) {
+    const current = photosByPizzaId.get(photo.pizzaId) ?? [];
+
+    current.push(photo);
+    photosByPizzaId.set(photo.pizzaId, current);
+  }
+
+  return pizzas.map((pizza) => {
+    const photos = sortPizzaPhotos(photosByPizzaId.get(pizza.id) ?? []);
+    const fallbackPhoto = photos.length === 0 ? getFallbackPhoto(pizza) : null;
+
+    return {
+      ...pizza,
+      photos: fallbackPhoto ? [fallbackPhoto] : photos,
+    };
+  });
+}
+
+async function getPizzaById(pizzaId: number): Promise<Pizza | null> {
+  const result = await query(
+    `
+      SELECT ${pizzaSelectFields}
+      FROM pizzas
+      WHERE id = $1;
+    `,
+    [pizzaId],
+  );
+
+  const pizzas = await attachPhotosToPizzas(result.rows as Pizza[]);
+
+  return pizzas[0] ?? null;
+}
 
 function sortLocations(locations: LocationWithHours[]): LocationWithHours[] {
   return [...locations].sort((a, b) => {
@@ -201,7 +293,7 @@ export async function getActivePizzas(): Promise<Pizza[]> {
     ORDER BY display_order, name;
   `);
 
-  return result.rows;
+  return attachPhotosToPizzas(result.rows as Pizza[]);
 }
 
 export async function getAllPizzasForAdmin(): Promise<Pizza[]> {
@@ -211,7 +303,7 @@ export async function getAllPizzasForAdmin(): Promise<Pizza[]> {
     ORDER BY active DESC, display_order, name;
   `);
 
-  return result.rows;
+  return attachPhotosToPizzas(result.rows as Pizza[]);
 }
 
 export async function getPizzasByIds(ids: number[]): Promise<Pizza[]> {
@@ -229,7 +321,7 @@ export async function getPizzasByIds(ids: number[]): Promise<Pizza[]> {
     [ids],
   );
 
-  return result.rows;
+  return attachPhotosToPizzas(result.rows as Pizza[]);
 }
 
 export async function getTodayOccupancy(): Promise<OccupancyOrder[]> {
@@ -441,7 +533,7 @@ export async function createPizza(input: PizzaWriteInput): Promise<Pizza> {
     ],
   );
 
-  return result.rows[0];
+  return (await getPizzaById(result.rows[0].id)) ?? result.rows[0];
 }
 
 export async function updatePizza(
@@ -478,7 +570,13 @@ export async function updatePizza(
     ],
   );
 
-  return result.rows[0] ?? null;
+  const updatedPizza = result.rows[0];
+
+  if (!updatedPizza) {
+    return null;
+  }
+
+  return getPizzaById(updatedPizza.id);
 }
 
 export async function togglePizzaActive(
@@ -494,7 +592,72 @@ export async function togglePizzaActive(
     [pizzaId],
   );
 
-  return result.rows[0] ?? null;
+  const updatedPizza = result.rows[0];
+
+  if (!updatedPizza) {
+    return null;
+  }
+
+  return getPizzaById(updatedPizza.id);
+}
+
+export async function replacePizzaPhotos(
+  pizzaId: number,
+  photos: PizzaPhotoWriteInput[],
+): Promise<Pizza | null> {
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    await client.query(
+      `
+        DELETE FROM pizza_photos
+        WHERE pizza_id = $1;
+      `,
+      [pizzaId],
+    );
+
+    for (const [index, photo] of photos.entries()) {
+      await client.query(
+        `
+          INSERT INTO pizza_photos (
+            pizza_id,
+            image_path,
+            alt_text,
+            display_order
+          )
+          VALUES ($1, $2, $3, $4);
+        `,
+        [
+          pizzaId,
+          photo.imagePath,
+          photo.altText,
+          Number.isInteger(photo.displayOrder) ? photo.displayOrder : index * 10,
+        ],
+      );
+    }
+
+    const firstPhotoPath = photos[0]?.imagePath ?? null;
+
+    await client.query(
+      `
+        UPDATE pizzas
+        SET photo_path = $2
+        WHERE id = $1;
+      `,
+      [pizzaId, firstPhotoPath],
+    );
+
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+
+  return getPizzaById(pizzaId);
 }
 
 export async function createBusinessLocation(

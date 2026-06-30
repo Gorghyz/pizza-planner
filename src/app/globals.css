@@ -861,3 +861,156 @@ button:disabled {
     justify-content: flex-start;
   }
 }
+button.danger {
+  background: #f9e2de;
+  color: #8f2d14;
+  border: 1px solid #efb6aa;
+}
+
+.admin-photo-list {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-photo-item {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+  background: #fffdf9;
+}
+
+.admin-photo-item img {
+  width: 120px;
+  height: 90px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+
+.admin-photo-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-photo-button-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.admin-photo-button-row button {
+  min-height: 34px;
+  padding: 7px 10px;
+  font-size: 0.85rem;
+}
+
+.pizza-photo-gallery {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 18px 18px 0 0;
+  background: #f4efe4;
+}
+
+.pizza-photo-gallery-viewport {
+  overflow: hidden;
+  width: 100%;
+}
+
+.pizza-photo-gallery-container {
+  display: flex;
+  touch-action: pan-y pinch-zoom;
+}
+
+.pizza-photo-gallery-slide {
+  min-width: 100%;
+  display: block;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  cursor: zoom-in;
+}
+
+.pizza-photo-gallery-slide:hover,
+.pizza-photo-gallery-slide:focus-visible {
+  transform: none;
+}
+
+.pizza-photo-gallery .att-pizza-photo {
+  display: block;
+  width: 100%;
+}
+
+.pizza-photo-gallery-arrow {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  background: rgba(17, 17, 17, 0.52);
+  color: #fff;
+  font-size: 1.6rem;
+  line-height: 1;
+  transform: translateY(-50%);
+}
+
+.pizza-photo-gallery-arrow:hover {
+  background: rgba(17, 17, 17, 0.7);
+  transform: translateY(-50%);
+}
+
+.pizza-photo-gallery-arrow-prev {
+  left: 10px;
+}
+
+.pizza-photo-gallery-arrow-next {
+  right: 10px;
+}
+
+.pizza-photo-gallery-dots {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 10px;
+  z-index: 2;
+  display: flex;
+  justify-content: center;
+  gap: 7px;
+  pointer-events: none;
+}
+
+.pizza-photo-gallery-dot {
+  width: 9px;
+  height: 9px;
+  min-height: 9px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.88);
+  background: rgba(17, 17, 17, 0.38);
+  pointer-events: auto;
+}
+
+.pizza-photo-gallery-dot-active {
+  background: #fff;
+}
+
+@media (max-width: 640px) {
+  .admin-photo-item {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-photo-item img {
+    width: 100%;
+    height: auto;
+    max-height: 220px;
+  }
+}

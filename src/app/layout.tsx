@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import "./globals.css";
+import "yet-another-react-lightbox/styles.css";
 import "./public.css";
 import "./public-refinements.css";
 

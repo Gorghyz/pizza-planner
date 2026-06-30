@@ -45,7 +45,10 @@ function buildMenuStructuredData(pizzas: Pizza[]) {
           "@type": "MenuItem",
           name: pizza.name,
           description: pizza.description || pizza.ingredients || undefined,
-          image: pizza.photoPath ? `${SITE_URL}${pizza.photoPath}` : undefined,
+          image:
+            pizza.photos[0]?.imagePath || pizza.photoPath
+              ? `${SITE_URL}${pizza.photos[0]?.imagePath ?? pizza.photoPath}`
+              : undefined,
           offers: {
             "@type": "Offer",
             price: (pizza.priceCents / 100).toFixed(2),

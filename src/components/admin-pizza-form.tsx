@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
-import type { Pizza } from "@/lib/types";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { Pizza, PizzaPhoto } from "@/lib/types";
 
 type AdminPizzaFormProps = {
   initialPizzas: Pizza[];
@@ -11,6 +11,11 @@ type SavePizzaResponse = {
   ok?: boolean;
   pizza?: Pizza;
   error?: string;
+};
+
+type NewPhotoPreview = {
+  file: File;
+  previewUrl: string;
 };
 
 function formatEuros(priceCents: number): string {
@@ -32,6 +37,40 @@ function sortPizzas(pizzas: Pizza[]): Pizza[] {
 
     return a.name.localeCompare(b.name, "fr");
   });
+}
+
+function sortPizzaPhotos(photos: PizzaPhoto[]): PizzaPhoto[] {
+  return [...photos].sort((a, b) => {
+    if (a.displayOrder !== b.displayOrder) {
+      return a.displayOrder - b.displayOrder;
+    }
+
+    return a.id - b.id;
+  });
+}
+
+function getPizzaPhotos(pizza: Pizza): PizzaPhoto[] {
+  if (pizza.photos.length > 0) {
+    return sortPizzaPhotos(pizza.photos);
+  }
+
+  if (!pizza.photoPath) {
+    return [];
+  }
+
+  return [
+    {
+      id: 0,
+      pizzaId: pizza.id,
+      imagePath: pizza.photoPath,
+      altText: pizza.name,
+      displayOrder: 0,
+    },
+  ];
+}
+
+function getPrimaryPhotoPath(pizza: Pizza): string | null {
+  return getPizzaPhotos(pizza)[0]?.imagePath ?? pizza.photoPath;
 }
 
 async function readJsonResponse<T>(response: Response): Promise<T> {
@@ -60,8 +99,9 @@ export default function AdminPizzaForm({
   const [allergens, setAllergens] = useState("");
   const [prepMinutes, setPrepMinutes] = useState("4");
   const [active, setActive] = useState(true);
-  const [photo, setPhoto] = useState<File | null>(null);
-  const [existingPhotoPath, setExistingPhotoPath] = useState<string | null>(null);
+  const [existingPhotos, setExistingPhotos] = useState<PizzaPhoto[]>([]);
+  const [newPhotoPreviews, setNewPhotoPreviews] = useState<NewPhotoPreview[]>([]);
+  const newPhotoPreviewsRef = useRef<NewPhotoPreview[]>([]);
 
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
@@ -73,6 +113,28 @@ export default function AdminPizzaForm({
     [editingId, pizzas],
   );
 
+  useEffect(() => {
+    newPhotoPreviewsRef.current = newPhotoPreviews;
+  }, [newPhotoPreviews]);
+
+  useEffect(() => {
+    return () => {
+      for (const preview of newPhotoPreviewsRef.current) {
+        URL.revokeObjectURL(preview.previewUrl);
+      }
+    };
+  }, []);
+
+  function clearNewPhotoPreviews() {
+    setNewPhotoPreviews((previous) => {
+      for (const preview of previous) {
+        URL.revokeObjectURL(preview.previewUrl);
+      }
+
+      return [];
+    });
+  }
+
   function resetForm() {
     setEditingId(null);
     setName("");
@@ -83,8 +145,8 @@ export default function AdminPizzaForm({
     setAllergens("");
     setPrepMinutes("4");
     setActive(true);
-    setPhoto(null);
-    setExistingPhotoPath(null);
+    setExistingPhotos([]);
+    clearNewPhotoPreviews();
     setErrorMessage("");
     setSuccessMessage("");
 
@@ -103,8 +165,8 @@ export default function AdminPizzaForm({
     setAllergens(pizza.allergens);
     setPrepMinutes(String(pizza.prepMinutes));
     setActive(pizza.active);
-    setPhoto(null);
-    setExistingPhotoPath(pizza.photoPath);
+    setExistingPhotos(getPizzaPhotos(pizza));
+    clearNewPhotoPreviews();
     setErrorMessage("");
     setSuccessMessage("");
 
@@ -127,6 +189,60 @@ export default function AdminPizzaForm({
 
       return sortPizzas([...previous, updatedPizza]);
     });
+  }
+
+  function moveExistingPhoto(index: number, direction: -1 | 1) {
+    setExistingPhotos((previous) => {
+      const nextIndex = index + direction;
+
+      if (nextIndex < 0 || nextIndex >= previous.length) {
+        return previous;
+      }
+
+      const next = [...previous];
+      const [photo] = next.splice(index, 1);
+      next.splice(nextIndex, 0, photo);
+
+      return next;
+    });
+  }
+
+  function removeExistingPhoto(index: number) {
+    setExistingPhotos((previous) => previous.filter((_, currentIndex) => currentIndex !== index));
+  }
+
+  function removeNewPhoto(index: number) {
+    setNewPhotoPreviews((previous) => {
+      const photo = previous[index];
+
+      if (photo) {
+        URL.revokeObjectURL(photo.previewUrl);
+      }
+
+      return previous.filter((_, currentIndex) => currentIndex !== index);
+    });
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }
+
+  function handleNewPhotosChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+
+    if (files.length === 0) {
+      return;
+    }
+
+    setNewPhotoPreviews((previous) => [
+      ...previous,
+      ...files.map((file) => ({
+        file,
+        previewUrl: URL.createObjectURL(file),
+      })),
+    ]);
+
+    event.target.value = "";
   }
 
   async function handleToggleActive(
@@ -188,9 +304,7 @@ export default function AdminPizzaForm({
     const numericPrep = Number(prepMinutes);
 
     if (!Number.isInteger(numericPrep) || numericPrep <= 0) {
-      setErrorMessage(
-        "Le temps de préparation doit être un entier positif.",
-      );
+      setErrorMessage("Le temps de préparation doit être un entier positif.");
       return;
     }
 
@@ -198,6 +312,12 @@ export default function AdminPizzaForm({
 
     try {
       const formData = new FormData();
+      const orderedExistingPhotos = existingPhotos.map((photo, index) => ({
+        ...photo,
+        altText: photo.altText || name.trim(),
+        displayOrder: index * 10,
+      }));
+
       formData.set("name", name.trim());
       formData.set("priceEuros", priceEuros.trim());
       formData.set("seasonality", seasonality.trim());
@@ -206,14 +326,15 @@ export default function AdminPizzaForm({
       formData.set("allergens", allergens.trim());
       formData.set("prepMinutes", String(numericPrep));
       formData.set("active", String(active));
-      formData.set("existingPhotoPath", existingPhotoPath ?? "");
+      formData.set("existingPhotosJson", JSON.stringify(orderedExistingPhotos));
+      formData.set("existingPhotoPath", orderedExistingPhotos[0]?.imagePath ?? "");
 
       if (editingId !== null) {
         formData.set("pizzaId", String(editingId));
       }
 
-      if (photo) {
-        formData.set("photo", photo);
+      for (const preview of newPhotoPreviews) {
+        formData.append("photos", preview.file);
       }
 
       const response = await fetch("/api/admin/pizzas", {
@@ -366,25 +487,88 @@ export default function AdminPizzaForm({
           </details>
 
           <div className="field">
-            <label htmlFor="pizza-photo">Photo</label>
+            <label htmlFor="pizza-photos">Photos</label>
             <input
-              id="pizza-photo"
+              id="pizza-photos"
               ref={fileInputRef}
               type="file"
               accept="image/png,image/jpeg,image/webp,image/gif"
-              onChange={(event) => setPhoto(event.target.files?.[0] ?? null)}
+              multiple
+              onChange={handleNewPhotosChange}
             />
-            <div className="small">JPEG, PNG, WebP ou GIF, 5 Mo max.</div>
+            <div className="small">
+              JPEG, PNG, WebP ou GIF, 5 Mo max par image. La première photo est
+              utilisée comme photo principale.
+            </div>
           </div>
 
-          {existingPhotoPath ? (
+          {existingPhotos.length > 0 || newPhotoPreviews.length > 0 ? (
             <div className="field">
-              <label>Photo actuelle</label>
-              <img
-                src={existingPhotoPath}
-                alt={name || "Pizza"}
-                className="catalog-photo"
-              />
+              <label>Galerie de la pizza</label>
+
+              <div className="admin-photo-list">
+                {existingPhotos.map((photo, index) => (
+                  <div key={`${photo.id}-${photo.imagePath}`} className="admin-photo-item">
+                    <img src={photo.imagePath} alt={photo.altText || name || "Pizza"} />
+
+                    <div className="admin-photo-actions">
+                      <span className="small">
+                        {index === 0 ? "Photo principale" : `Photo ${index + 1}`}
+                      </span>
+
+                      <div className="admin-photo-button-row">
+                        <button
+                          type="button"
+                          className="secondary"
+                          disabled={index === 0}
+                          onClick={() => moveExistingPhoto(index, -1)}
+                        >
+                          Monter
+                        </button>
+
+                        <button
+                          type="button"
+                          className="secondary"
+                          disabled={index === existingPhotos.length - 1}
+                          onClick={() => moveExistingPhoto(index, 1)}
+                        >
+                          Descendre
+                        </button>
+
+                        <button
+                          type="button"
+                          className="danger"
+                          onClick={() => removeExistingPhoto(index)}
+                        >
+                          Retirer
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {newPhotoPreviews.map((preview, index) => (
+                  <div key={preview.previewUrl} className="admin-photo-item">
+                    <img src={preview.previewUrl} alt={`Nouvelle photo ${index + 1}`} />
+
+                    <div className="admin-photo-actions">
+                      <span className="small">
+                        Nouvelle photo {index + 1} — ajoutée à l’enregistrement
+                      </span>
+
+                      <div className="admin-photo-button-row">
+                        <button
+                          type="button"
+                          className="danger"
+                          onClick={() => removeNewPhoto(index)}
+                        >
+                          Retirer
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           ) : null}
 
@@ -424,78 +608,83 @@ export default function AdminPizzaForm({
           <p className="empty">Aucune pizza enregistrée.</p>
         ) : (
           <div className="catalog-list">
-            {pizzas.map((pizza) => (
-              <article
-                key={pizza.id}
-                className={[
-                  "catalog-item",
-                  pizza.active ? "catalog-item-active" : "catalog-item-inactive",
-                  editingId === pizza.id ? "catalog-item-selected" : "",
-                ].join(" ")}
-                onClick={() => loadPizzaIntoForm(pizza)}
-              >
-                <div className="catalog-item-header">
-                  <div>
-                    <h3>{pizza.name}</h3>
-                    <div className="small">
-                      {formatEuros(pizza.priceCents)} · {pizza.prepMinutes} min
+            {pizzas.map((pizza) => {
+              const primaryPhotoPath = getPrimaryPhotoPath(pizza);
+              const photoCount = getPizzaPhotos(pizza).length;
+
+              return (
+                <article
+                  key={pizza.id}
+                  className={[
+                    "catalog-item",
+                    pizza.active ? "catalog-item-active" : "catalog-item-inactive",
+                    editingId === pizza.id ? "catalog-item-selected" : "",
+                  ].join(" ")}
+                  onClick={() => loadPizzaIntoForm(pizza)}
+                >
+                  <div className="catalog-item-header">
+                    <div>
+                      <h3>{pizza.name}</h3>
+                      <div className="small">
+                        {formatEuros(pizza.priceCents)} · {pizza.prepMinutes} min · {photoCount} photo{photoCount > 1 ? "s" : ""}
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      className={[
+                        "small-pill-button",
+                        pizza.active ? "small-pill-active" : "small-pill-inactive",
+                      ].join(" ")}
+                      disabled={busyPizzaId === pizza.id}
+                      onClick={(event) => handleToggleActive(event, pizza.id)}
+                    >
+                      {busyPizzaId === pizza.id
+                        ? "..."
+                        : pizza.active
+                          ? "Active"
+                          : "Inactive"}
+                    </button>
+                  </div>
+
+                  {primaryPhotoPath ? (
+                    <img
+                      src={primaryPhotoPath}
+                      alt={pizza.name}
+                      className="catalog-photo"
+                    />
+                  ) : null}
+
+                  <div className="catalog-section">
+                    <strong>Saisonnalité</strong>
+                    <div className="multiline-text">
+                      {pizza.seasonality || "—"}
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    className={[
-                      "small-pill-button",
-                      pizza.active ? "small-pill-active" : "small-pill-inactive",
-                    ].join(" ")}
-                    disabled={busyPizzaId === pizza.id}
-                    onClick={(event) => handleToggleActive(event, pizza.id)}
-                  >
-                    {busyPizzaId === pizza.id
-                      ? "..."
-                      : pizza.active
-                        ? "Active"
-                        : "Inactive"}
-                  </button>
-                </div>
-
-                {pizza.photoPath ? (
-                  <img
-                    src={pizza.photoPath}
-                    alt={pizza.name}
-                    className="catalog-photo"
-                  />
-                ) : null}
-
-                <div className="catalog-section">
-                  <strong>Saisonnalité</strong>
-                  <div className="multiline-text">
-                    {pizza.seasonality || "—"}
+                  <div className="catalog-section">
+                    <strong>Ingrédients</strong>
+                    <div className="multiline-text">
+                      {pizza.ingredients || "—"}
+                    </div>
                   </div>
-                </div>
 
-                <div className="catalog-section">
-                  <strong>Ingrédients</strong>
-                  <div className="multiline-text">
-                    {pizza.ingredients || "—"}
+                  <div className="catalog-section">
+                    <strong>Description</strong>
+                    <div className="multiline-text">
+                      {pizza.description || "—"}
+                    </div>
                   </div>
-                </div>
 
-                <div className="catalog-section">
-                  <strong>Description</strong>
-                  <div className="multiline-text">
-                    {pizza.description || "—"}
+                  <div className="catalog-section">
+                    <strong>Allergènes</strong>
+                    <div className="multiline-text">
+                      {pizza.allergens || "—"}
+                    </div>
                   </div>
-                </div>
-
-                <div className="catalog-section">
-                  <strong>Allergènes</strong>
-                  <div className="multiline-text">
-                    {pizza.allergens || "—"}
-                  </div>
-                </div>
-              </article>
-            ))}
+                </article>
+              );
+            })}
           </div>
         )}
       </section>

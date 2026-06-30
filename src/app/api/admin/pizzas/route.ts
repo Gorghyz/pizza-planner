@@ -1,12 +1,20 @@
-import { NextResponse } from "next/server";
+import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { randomUUID } from "node:crypto";
-import { createPizza, updatePizza } from "@/lib/data";
+import { NextResponse } from "next/server";
+
+import { createPizza, replacePizzaPhotos, updatePizza } from "@/lib/data";
+import type { PizzaPhoto } from "@/lib/types";
 
 export const runtime = "nodejs";
 
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+
+type ParsedPizzaPhoto = {
+  imagePath: string;
+  altText: string;
+  displayOrder: number;
+};
 
 function getImageExtension(filename: string, mimeType: string): string {
   const extension = path.extname(filename).toLowerCase();
@@ -45,6 +53,54 @@ function parsePriceToCents(raw: string): number | null {
   return Math.round(value * 100);
 }
 
+function parseExistingPhotos(raw: string, pizzaName: string): ParsedPizzaPhoto[] {
+  if (!raw.trim()) {
+    return [];
+  }
+
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return [];
+  }
+
+  if (!Array.isArray(parsed)) {
+    return [];
+  }
+
+  return parsed
+    .map((item, index): ParsedPizzaPhoto | null => {
+      if (typeof item !== "object" || item === null) {
+        return null;
+      }
+
+      const photo = item as Partial<PizzaPhoto>;
+      const imagePath = typeof photo.imagePath === "string" ? photo.imagePath : "";
+
+      if (!imagePath.startsWith("/uploads/")) {
+        return null;
+      }
+
+      const altText =
+        typeof photo.altText === "string" && photo.altText.trim()
+          ? photo.altText.trim()
+          : pizzaName;
+
+      const displayOrder = Number.isInteger(photo.displayOrder)
+        ? Number(photo.displayOrder)
+        : index * 10;
+
+      return {
+        imagePath,
+        altText,
+        displayOrder,
+      };
+    })
+    .filter((photo): photo is ParsedPizzaPhoto => photo !== null);
+}
+
 async function saveUploadedPhoto(photo: File): Promise<string> {
   const extension = getImageExtension(photo.name, photo.type);
 
@@ -66,6 +122,30 @@ async function saveUploadedPhoto(photo: File): Promise<string> {
   return `/uploads/pizzas/${filename}`;
 }
 
+async function saveUploadedPhotos(files: File[]): Promise<string[]> {
+  const paths: string[] = [];
+
+  for (const file of files) {
+    paths.push(await saveUploadedPhoto(file));
+  }
+
+  return paths;
+}
+
+function readPhotoFiles(formData: FormData): File[] {
+  const files = formData
+    .getAll("photos")
+    .filter((value): value is File => value instanceof File && value.size > 0);
+
+  const legacyPhoto = formData.get("photo");
+
+  if (legacyPhoto instanceof File && legacyPhoto.size > 0) {
+    files.push(legacyPhoto);
+  }
+
+  return files;
+}
+
 async function parseFormData(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   const ingredients = String(formData.get("ingredients") ?? "").trim();
@@ -74,9 +154,10 @@ async function parseFormData(formData: FormData) {
   const seasonality = String(formData.get("seasonality") ?? "").trim();
   const prepMinutes = Number(formData.get("prepMinutes") ?? 0);
   const active = String(formData.get("active") ?? "true") === "true";
+  const priceRaw = String(formData.get("priceEuros") ?? "").trim();
+  const existingPhotosRaw = String(formData.get("existingPhotosJson") ?? "");
   const existingPhotoPath =
     String(formData.get("existingPhotoPath") ?? "").trim() || null;
-  const priceRaw = String(formData.get("priceEuros") ?? "").trim();
 
   if (!name) {
     return { error: "Le nom de la pizza est obligatoire." };
@@ -92,34 +173,67 @@ async function parseFormData(formData: FormData) {
     return { error: "Le prix doit être un nombre valide, par exemple 12.50" };
   }
 
-  let photoPath: string | null = existingPhotoPath;
-  const photoValue = formData.get("photo");
+  const photoFiles = readPhotoFiles(formData);
 
-  if (photoValue instanceof File && photoValue.size > 0) {
-    if (!photoValue.type.startsWith("image/")) {
-      return { error: "Le fichier photo doit être une image." };
+  for (const photoFile of photoFiles) {
+    if (!photoFile.type.startsWith("image/")) {
+      return { error: "Chaque fichier photo doit être une image." };
     }
 
-    if (photoValue.size > MAX_FILE_SIZE_BYTES) {
-      return { error: "La photo dépasse 5 Mo." };
+    if (photoFile.size > MAX_FILE_SIZE_BYTES) {
+      return { error: "Une photo dépasse 5 Mo." };
     }
+  }
 
-    photoPath = await saveUploadedPhoto(photoValue);
+  const existingPhotos = parseExistingPhotos(existingPhotosRaw, name);
+
+  if (existingPhotos.length === 0 && existingPhotoPath) {
+    existingPhotos.push({
+      imagePath: existingPhotoPath,
+      altText: name,
+      displayOrder: 0,
+    });
   }
 
   return {
     value: {
-      name,
-      ingredients,
-      description,
-      allergens,
-      seasonality,
-      prepMinutes,
-      active,
-      photoPath,
-      priceCents,
+      pizza: {
+        name,
+        ingredients,
+        description,
+        allergens,
+        seasonality,
+        prepMinutes,
+        active,
+        photoPath: existingPhotos[0]?.imagePath ?? null,
+        priceCents,
+      },
+      existingPhotos,
+      photoFiles,
     },
   };
+}
+
+function buildPhotoList(
+  pizzaName: string,
+  existingPhotos: ParsedPizzaPhoto[],
+  uploadedPhotoPaths: string[],
+): ParsedPizzaPhoto[] {
+  const photos = existingPhotos.map((photo, index) => ({
+    ...photo,
+    altText: photo.altText || pizzaName,
+    displayOrder: index * 10,
+  }));
+
+  for (const path of uploadedPhotoPaths) {
+    photos.push({
+      imagePath: path,
+      altText: pizzaName,
+      displayOrder: photos.length * 10,
+    });
+  }
+
+  return photos;
 }
 
 export async function POST(request: Request) {
@@ -131,11 +245,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
 
-    const pizza = await createPizza(parsed.value);
+    const uploadedPhotoPaths = await saveUploadedPhotos(parsed.value.photoFiles);
+    const photos = buildPhotoList(
+      parsed.value.pizza.name,
+      parsed.value.existingPhotos,
+      uploadedPhotoPaths,
+    );
+
+    const pizza = await createPizza({
+      ...parsed.value.pizza,
+      photoPath: photos[0]?.imagePath ?? null,
+    });
+
+    const pizzaWithPhotos = await replacePizzaPhotos(pizza.id, photos);
 
     return NextResponse.json({
       ok: true,
-      pizza,
+      pizza: pizzaWithPhotos ?? pizza,
     });
   } catch (error) {
     console.error(error);
@@ -177,7 +303,17 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
 
-    const pizza = await updatePizza(pizzaId, parsed.value);
+    const uploadedPhotoPaths = await saveUploadedPhotos(parsed.value.photoFiles);
+    const photos = buildPhotoList(
+      parsed.value.pizza.name,
+      parsed.value.existingPhotos,
+      uploadedPhotoPaths,
+    );
+
+    const pizza = await updatePizza(pizzaId, {
+      ...parsed.value.pizza,
+      photoPath: photos[0]?.imagePath ?? null,
+    });
 
     if (!pizza) {
       return NextResponse.json(
@@ -186,9 +322,11 @@ export async function PUT(request: Request) {
       );
     }
 
+    const pizzaWithPhotos = await replacePizzaPhotos(pizzaId, photos);
+
     return NextResponse.json({
       ok: true,
-      pizza,
+      pizza: pizzaWithPhotos ?? pizza,
     });
   } catch (error) {
     console.error(error);
