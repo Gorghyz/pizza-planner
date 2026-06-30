@@ -287,6 +287,7 @@ export async function getCustomerRequests(): Promise<CustomerRequest[]> {
   const result = await query(`
     SELECT ${customerRequestSelectFields}
     FROM customer_requests
+    WHERE (created_at AT TIME ZONE '${PARIS_TIME_ZONE_SQL}')::date = ${PARIS_CURRENT_DATE_SQL}
     ORDER BY
       CASE status
         WHEN 'new' THEN 0
