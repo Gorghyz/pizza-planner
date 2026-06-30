@@ -1,5 +1,4 @@
-import Link from "next/link";
-import BusinessLogoutButton from "@/components/business-logout-button";
+import BusinessSectionNav from "@/components/business-navigation";
 import OrderScreen from "@/components/order-screen";
 import { getActivePizzas, getTodayOrders, getTodayServiceSettings } from "@/lib/data";
 
@@ -21,21 +20,7 @@ export default async function BusinessOrderPage() {
           disponibles au client.
         </p>
 
-        <div className="page-actions">
-          <Link href="/business" className="link-button secondary-link">
-            Accueil business
-          </Link>
-          <Link href="/business/cuisine" className="link-button">
-            Vue cuisine
-          </Link>
-          <Link href="/business/admin" className="link-button secondary-link">
-            Réglages business
-          </Link>
-          <Link href="/admin/pizzas" className="link-button secondary-link">
-            Admin carte
-          </Link>
-          <BusinessLogoutButton />
-        </div>
+        <BusinessSectionNav section="orders" currentHref="/business/prise" />
       </header>
 
       <section className="card" style={{ marginBottom: 20 }}>

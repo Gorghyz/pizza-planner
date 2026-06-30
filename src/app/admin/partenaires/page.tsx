@@ -1,5 +1,4 @@
-import Link from "next/link";
-
+import BusinessSectionNav from "@/components/business-navigation";
 import AdminPartnerForm from "@/components/admin-partner-form";
 import { getAllPartnersForAdmin } from "@/lib/partners";
 
@@ -18,19 +17,11 @@ export default async function AdminPartnersPage() {
           page publique.
         </p>
 
-        <div className="page-actions">
-          <Link href="/business" className="link-button secondary-link">
-            Accueil business
-          </Link>
-
-          <Link href="/admin/pizzas" className="link-button secondary-link">
-            Administration de la carte
-          </Link>
-
-          <Link href="/nos-partenaires" className="link-button">
-            Voir la page publique
-          </Link>
-        </div>
+        <BusinessSectionNav
+          section="site-admin"
+          currentHref="/admin/partenaires"
+          extraLinks={[{ href: "/nos-partenaires", label: "Voir la page publique" }]}
+        />
       </header>
 
       <AdminPartnerForm initialPartners={partners} />

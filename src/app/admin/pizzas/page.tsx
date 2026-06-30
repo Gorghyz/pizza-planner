@@ -1,4 +1,4 @@
-import Link from "next/link";
+import BusinessSectionNav from "@/components/business-navigation";
 import AdminPizzaForm from "@/components/admin-pizza-form";
 import { getAllPizzasForAdmin } from "@/lib/data";
 
@@ -12,21 +12,14 @@ export default async function AdminPizzasPage() {
       <header className="page-header">
         <h1>Administration de la carte</h1>
         <p>
-          Clique sur une pizza à droite pour l&apos;éditer immédiatement à
-          gauche.
+          Clique sur une pizza à droite pour l&apos;éditer immédiatement à gauche.
         </p>
 
-        <div className="page-actions">
-          <Link href="/business" className="link-button secondary-link">
-            Accueil business
-          </Link>
-          <Link href="/business/prise" className="link-button">
-            Prise de commande
-          </Link>
-          <Link href="/carte" className="link-button secondary-link">
-            Voir la carte publique
-          </Link>
-        </div>
+        <BusinessSectionNav
+          section="site-admin"
+          currentHref="/admin/pizzas"
+          extraLinks={[{ href: "/carte", label: "Voir la carte publique" }]}
+        />
       </header>
 
       <AdminPizzaForm initialPizzas={pizzas} />

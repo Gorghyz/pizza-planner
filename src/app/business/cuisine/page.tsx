@@ -1,4 +1,4 @@
-import Link from "next/link";
+import BusinessSectionNav from "@/components/business-navigation";
 import KitchenBoard from "@/components/kitchen-board";
 import { getTodayOrders } from "@/lib/data";
 
@@ -16,14 +16,7 @@ export default async function BusinessKitchenPage() {
           jour du statut.
         </p>
 
-        <div className="page-actions">
-          <Link href="/business" className="link-button secondary-link">
-            Accueil business
-          </Link>
-          <Link href="/business/prise" className="link-button">
-            Prise de commande
-          </Link>
-        </div>
+        <BusinessSectionNav section="orders" currentHref="/business/cuisine" />
       </header>
 
       <KitchenBoard orders={orders} />
