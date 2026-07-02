@@ -135,6 +135,10 @@ export default async function CartePage() {
               key={event.id}
               href={`/evenements/${event.slug}`}
               className="att-event-callout"
+              data-analytics-event="event_callout_click"
+              data-analytics-label={event.title}
+              data-analytics-target={`/evenements/${event.slug}`}
+              data-event-slug={event.slug}
             >
               <div className="att-event-callout-copy">
                 <strong>{event.title}</strong>

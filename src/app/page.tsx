@@ -534,6 +534,9 @@ export default async function PublicHomePage() {
             <Link
               href="/carte"
               aria-label="Voir la carte et commander"
+              data-analytics-event="home_hero_click"
+              data-analytics-label="Image accueil"
+              data-analytics-target="/carte"
               style={{
                 display: "block",
                 width: "100%",
@@ -573,7 +576,13 @@ export default async function PublicHomePage() {
             marginTop: "16px",
           }}
         >
-          <Link href="/carte" className="att-black-button">
+          <Link
+            href="/carte"
+            className="att-black-button"
+            data-analytics-event="home_cta_click"
+            data-analytics-label="Voir la carte / Commander"
+            data-analytics-target="/carte"
+          >
             Voir la carte / Commander
           </Link>
         </div>
@@ -586,7 +595,13 @@ export default async function PublicHomePage() {
             aria-label="Événement à venir"
             style={{ marginTop: "32px" }}
           >
-            <Link href={homeNotice.href} className="att-event-callout">
+            <Link
+              href={homeNotice.href}
+              className="att-event-callout"
+              data-analytics-event="event_callout_click"
+              data-analytics-label={homeNotice.title}
+              data-analytics-target={homeNotice.href}
+            >
               <div className="att-event-callout-copy">
                 <strong>{homeNotice.title}</strong>
                 <span>
@@ -656,7 +671,13 @@ export default async function PublicHomePage() {
               <p style={{ margin: "0 auto 16px", maxWidth: "560px" }}>
                 {homeNotice.body}
               </p>
-              <Link href="/carte" className="att-black-button">
+              <Link
+                href="/carte"
+                className="att-black-button"
+                data-analytics-event="closure_notice_click"
+                data-analytics-label="Voir la carte"
+                data-analytics-target="/carte"
+              >
                 Voir la carte
               </Link>
             </div>
@@ -674,6 +695,9 @@ export default async function PublicHomePage() {
           <Link
             href="/carte"
             aria-label="Voir la carte et commander"
+            data-analytics-event="home_illustration_click"
+            data-analytics-label="Illustration accueil"
+            data-analytics-target="/carte"
             style={{
               display: "block",
               overflow: "hidden",
@@ -705,6 +729,9 @@ export default async function PublicHomePage() {
           <Link
             href="/carte"
             className="att-ink-card att-feature-card att-feature-card-link"
+            data-analytics-event="home_feature_click"
+            data-analytics-label="Commander facilement"
+            data-analytics-target="/carte"
           >
             <div className="att-feature-icon att-feature-icon-image">
               <img src="/assets/icon-order.svg" alt="" aria-hidden="true" />
@@ -721,6 +748,9 @@ export default async function PublicHomePage() {
           <Link
             href="/carte"
             className="att-ink-card att-feature-card att-feature-card-link"
+            data-analytics-event="home_feature_click"
+            data-analytics-label="Pizzas originales"
+            data-analytics-target="/carte"
           >
             <div className="att-feature-icon att-feature-icon-image">
               <img
@@ -782,6 +812,10 @@ export default async function PublicHomePage() {
                         <Link
                           href={`/evenements/${day.event.slug}`}
                           className="att-week-event-link"
+                          data-analytics-event="week_event_click"
+                          data-analytics-label={day.event.title}
+                          data-analytics-target={`/evenements/${day.event.slug}`}
+                          data-event-slug={day.event.slug}
                         >
                           {day.event.title}
                         </Link>
@@ -801,6 +835,9 @@ export default async function PublicHomePage() {
                 rel="noreferrer"
                 className="att-info-icon att-info-facebook att-info-facebook-image"
                 aria-label="Suivez-nous sur Facebook"
+                data-analytics-event="external_click"
+                data-analytics-label="Facebook accueil"
+                data-analytics-target="facebook"
               >
                 <img
                   src="/assets/icon-facebook.svg"
@@ -867,7 +904,14 @@ export default async function PublicHomePage() {
               )}
 
               {mapUrl ? (
-                <a href={mapUrl} target="_blank" rel="noreferrer">
+                <a
+                  href={mapUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  data-analytics-event="map_click"
+                  data-analytics-label="OpenStreetMap accueil"
+                  data-analytics-target="openstreetmap"
+                >
                   Voir sur OpenStreetMap
                 </a>
               ) : null}

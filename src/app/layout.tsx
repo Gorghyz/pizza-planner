@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 
+import PublicAnalyticsTracker from "@/components/public-analytics-tracker";
+
 import "./globals.css";
 import "yet-another-react-lightbox/styles.css";
 import "./public.css";
@@ -112,6 +114,7 @@ export default function RootLayout({
             __html: JSON.stringify(websiteJsonLd),
           }}
         />
+        <PublicAnalyticsTracker />
         {children}
       </body>
     </html>

@@ -1510,3 +1510,15 @@
     padding: 22px;
   }
 }
+
+.att-order-contact-actions {
+  display: flex;
+  justify-content: center;
+  margin: 12px 0 18px;
+}
+
+.att-phone-call-button {
+  width: min(100%, 220px);
+  text-align: center;
+  text-decoration: none;
+}

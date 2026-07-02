@@ -609,6 +609,9 @@ export default function PublicCarteBuilder({ pizzas, orderContext }: PublicCarte
                               type="button"
                               onClick={() => setQuantity(pizza.id, quantity - 1)}
                               aria-label={`Retirer une ${pizza.name}`}
+                              data-analytics-event="pizza_remove"
+                              data-pizza-id={pizza.id}
+                              data-pizza-name={pizza.name}
                             >
                               −
                             </button>
@@ -619,6 +622,9 @@ export default function PublicCarteBuilder({ pizzas, orderContext }: PublicCarte
                               type="button"
                               onClick={() => setQuantity(pizza.id, quantity + 1)}
                               aria-label={`Ajouter une ${pizza.name}`}
+                              data-analytics-event="pizza_add"
+                              data-pizza-id={pizza.id}
+                              data-pizza-name={pizza.name}
                             >
                               +
                             </button>
@@ -647,6 +653,18 @@ export default function PublicCarteBuilder({ pizzas, orderContext }: PublicCarte
               </>
             )}
           </p>
+
+          <div className="att-order-contact-actions">
+            <a
+              href={`tel:${normalizePhoneForSmsLink(ORDER_PHONE_NUMBER)}`}
+              className="att-secondary-outline-button att-phone-call-button"
+              data-analytics-event="phone_click"
+              data-analytics-label="Appeler depuis la carte"
+              data-analytics-target="telephone"
+            >
+              Appeler
+            </a>
+          </div>
 
           <h2>{orderTitle}</h2>
 
@@ -823,6 +841,9 @@ export default function PublicCarteBuilder({ pizzas, orderContext }: PublicCarte
                           setQuantity(item.pizza.id, item.quantity - 1)
                         }
                         aria-label={`Retirer une ${item.pizza.name}`}
+                        data-analytics-event="pizza_remove"
+                        data-pizza-id={item.pizza.id}
+                        data-pizza-name={item.pizza.name}
                       >
                         −
                       </button>
@@ -835,6 +856,9 @@ export default function PublicCarteBuilder({ pizzas, orderContext }: PublicCarte
                           setQuantity(item.pizza.id, item.quantity + 1)
                         }
                         aria-label={`Ajouter une ${item.pizza.name}`}
+                        data-analytics-event="pizza_add"
+                        data-pizza-id={item.pizza.id}
+                        data-pizza-name={item.pizza.name}
                       >
                         +
                       </button>
@@ -862,6 +886,9 @@ export default function PublicCarteBuilder({ pizzas, orderContext }: PublicCarte
                 className="att-image-button"
                 onClick={handleOpenSms}
                 aria-label="Envoyer un SMS"
+                data-analytics-event="sms_click"
+                data-analytics-label={orderContext?.eventTitle ? "SMS événement" : "SMS carte"}
+                data-event-slug={eventSlug || undefined}
               >
                 <img
                   src="/assets/button-sms-rabbit.svg"
@@ -876,6 +903,9 @@ export default function PublicCarteBuilder({ pizzas, orderContext }: PublicCarte
                 onClick={handleSendDesktopRequest}
                 disabled={isSendingDesktopRequest || !orderingAllowed}
                 aria-label="Envoyer ma demande"
+                data-analytics-event="request_submit_click"
+                data-analytics-label={orderContext?.eventTitle ? "Demande événement" : "Demande carte"}
+                data-event-slug={eventSlug || undefined}
               >
                 <img
                   src="/assets/button-send-rabbit.svg"
@@ -911,6 +941,8 @@ export default function PublicCarteBuilder({ pizzas, orderContext }: PublicCarte
                 type="button"
                 className="att-secondary-outline-button att-full-width"
                 onClick={handleCopyMessage}
+                data-analytics-event="sms_copy_click"
+                data-analytics-label={orderContext?.eventTitle ? "Copie SMS événement" : "Copie SMS carte"}
               >
                 Copier le message (iOS)
               </button>

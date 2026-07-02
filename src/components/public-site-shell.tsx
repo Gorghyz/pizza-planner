@@ -33,7 +33,13 @@ function PublicHeader({ currentPage }: Pick<PublicSiteShellProps, "currentPage">
               Accueil
             </Link>
 
-            <Link href="/carte" className="att-public-nav-cta">
+            <Link
+              href="/carte"
+              className="att-public-nav-cta"
+              data-analytics-event="nav_click"
+              data-analytics-label="Voir la carte / Commander"
+              data-analytics-target="/carte"
+            >
               Voir la carte / Commander
             </Link>
           </>
@@ -42,6 +48,9 @@ function PublicHeader({ currentPage }: Pick<PublicSiteShellProps, "currentPage">
             href="/carte"
             className="att-public-nav-cta"
             aria-current={currentPage === "carte" ? "page" : undefined}
+            data-analytics-event="nav_click"
+            data-analytics-label="Voir la carte / Commander"
+            data-analytics-target="/carte"
           >
             Voir la carte / Commander
           </Link>
@@ -49,19 +58,22 @@ function PublicHeader({ currentPage }: Pick<PublicSiteShellProps, "currentPage">
 
         {isHome ? (
           <>
-            <a href="#ou-nous-trouver">Où nous trouver</a>
-            <a href="#qui-sommes-nous">Qui sommes-nous ?</a>
-            <a href="#nos-valeurs">Nos valeurs</a>
-            <Link href="/nos-partenaires">Nos partenaires</Link>
+            <a href="#ou-nous-trouver" data-analytics-event="nav_click" data-analytics-label="Où nous trouver" data-analytics-target="#ou-nous-trouver">Où nous trouver</a>
+            <a href="#qui-sommes-nous" data-analytics-event="nav_click" data-analytics-label="Qui sommes-nous ?" data-analytics-target="#qui-sommes-nous">Qui sommes-nous ?</a>
+            <a href="#nos-valeurs" data-analytics-event="nav_click" data-analytics-label="Nos valeurs" data-analytics-target="#nos-valeurs">Nos valeurs</a>
+            <Link href="/nos-partenaires" data-analytics-event="nav_click" data-analytics-label="Nos partenaires" data-analytics-target="/nos-partenaires">Nos partenaires</Link>
           </>
         ) : isLegal ? null : (
           <>
-            <Link href="/">Accueil</Link>
-            <Link href="/#qui-sommes-nous">Qui sommes-nous ?</Link>
-            <Link href="/#nos-valeurs">Nos valeurs</Link>
+            <Link href="/" data-analytics-event="nav_click" data-analytics-label="Accueil" data-analytics-target="/">Accueil</Link>
+            <Link href="/#qui-sommes-nous" data-analytics-event="nav_click" data-analytics-label="Qui sommes-nous ?" data-analytics-target="/#qui-sommes-nous">Qui sommes-nous ?</Link>
+            <Link href="/#nos-valeurs" data-analytics-event="nav_click" data-analytics-label="Nos valeurs" data-analytics-target="/#nos-valeurs">Nos valeurs</Link>
             <Link
               href="/nos-partenaires"
               aria-current={currentPage === "partners" ? "page" : undefined}
+              data-analytics-event="nav_click"
+              data-analytics-label="Nos partenaires"
+              data-analytics-target="/nos-partenaires"
             >
               Nos partenaires
             </Link>
@@ -74,6 +86,9 @@ function PublicHeader({ currentPage }: Pick<PublicSiteShellProps, "currentPage">
           rel="noreferrer"
           className="att-facebook-icon-link"
           aria-label="Suivez-nous sur Facebook"
+          data-analytics-event="external_click"
+          data-analytics-label="Facebook header"
+          data-analytics-target="facebook"
         >
           <img
             src="/assets/icon-facebook.svg"
@@ -107,6 +122,9 @@ function PublicFooter() {
           target="_blank"
           rel="noreferrer"
           className="att-public-footer-social"
+          data-analytics-event="external_click"
+          data-analytics-label="Facebook footer"
+          data-analytics-target="facebook"
         >
           <span className="att-facebook-icon-link att-public-footer-facebook-icon" aria-hidden="true">
             <img
@@ -123,9 +141,14 @@ function PublicFooter() {
 
         <div className="att-public-footer-links">
           <strong>Liens utiles</strong>
-          <Link href="/nos-partenaires">Nos partenaires</Link>
-          <Link href="/mentions-legales">Mentions légales</Link>
-          <Link href="/politique-confidentialite">
+          <Link href="/nos-partenaires" data-analytics-event="footer_click" data-analytics-label="Nos partenaires" data-analytics-target="/nos-partenaires">Nos partenaires</Link>
+          <Link href="/mentions-legales" data-analytics-event="footer_click" data-analytics-label="Mentions légales" data-analytics-target="/mentions-legales">Mentions légales</Link>
+          <Link
+            href="/politique-confidentialite"
+            data-analytics-event="footer_click"
+            data-analytics-label="Politique de confidentialité"
+            data-analytics-target="/politique-confidentialite"
+          >
             Politique de confidentialité
           </Link>
         </div>
