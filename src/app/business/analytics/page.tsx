@@ -1,13 +1,21 @@
 import Link from "next/link";
 
 import BusinessSectionNav from "@/components/business-navigation";
-import { getAnalyticsDashboardData, parseAnalyticsRange } from "@/lib/analytics";
+import {
+  getAnalyticsDashboardData,
+  getPizzaSalesAnalyticsData,
+  parseAnalyticsRange,
+  parsePizzaSalesDate,
+  parsePizzaSalesMode,
+} from "@/lib/analytics";
 
 export const dynamic = "force-dynamic";
 
 type BusinessAnalyticsPageProps = {
   searchParams?: Promise<{
     range?: string;
+    salesMode?: string;
+    salesDate?: string;
   }>;
 };
 
@@ -50,6 +58,120 @@ function RangeLink({ range, currentRange }: { range: 7 | 30 | 90; currentRange: 
     </Link>
   );
 }
+function formatMoney(cents: number): string {
+  return new Intl.NumberFormat("fr-FR", {
+    style: "currency",
+    currency: "EUR",
+  }).format(cents / 100);
+}
+
+function formatPercent(value: number): string {
+  return `${value.toLocaleString("fr-FR", { maximumFractionDigits: 1 })} %`;
+}
+
+function SalesModeLink({
+  mode,
+  currentMode,
+  salesDate,
+}: {
+  mode: "day" | "week" | "month" | "year";
+  currentMode: "day" | "week" | "month" | "year";
+  salesDate: string;
+}) {
+  const labels = {
+    day: "Jour",
+    week: "Semaine",
+    month: "Mois",
+    year: "Année",
+  };
+  const isCurrent = mode === currentMode;
+
+  return (
+    <Link
+      href={`/business/analytics?salesMode=${mode}&salesDate=${salesDate}`}
+      className={isCurrent ? "link-button" : "link-button secondary-link"}
+      aria-current={isCurrent ? "page" : undefined}
+    >
+      {labels[mode]}
+    </Link>
+  );
+}
+
+function PizzaSalesBarChart({
+  rows,
+}: {
+  rows: { pizzaName: string; quantity: number; sharePercent: number }[];
+}) {
+  const maxQuantity = Math.max(...rows.map((row) => row.quantity), 0);
+
+  if (rows.length === 0) {
+    return <p className="empty compact">Aucune pizza vendue sur cette période.</p>;
+  }
+
+  return (
+    <div className="analytics-bar-chart" aria-label="Pizzas les plus vendues">
+      {rows.map((row) => {
+        const width = maxQuantity > 0 ? Math.max((row.quantity / maxQuantity) * 100, 4) : 0;
+
+        return (
+          <div className="analytics-bar-row" key={row.pizzaName}>
+            <div className="analytics-bar-label">
+              <strong>{row.pizzaName}</strong>
+              <span>{row.quantity} pizza{row.quantity > 1 ? "s" : ""} · {formatPercent(row.sharePercent)}</span>
+            </div>
+            <div className="analytics-bar-track">
+              <div className="analytics-bar-fill" style={{ width: `${width}%` }} />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function WeeklyWeekdayBarChart({
+  rows,
+}: {
+  rows: { weekStart: string; weekLabel: string; friday: number; saturday: number; sunday: number; total: number }[];
+}) {
+  const maxValue = Math.max(...rows.flatMap((row) => [row.friday, row.saturday, row.sunday]), 0);
+
+  if (rows.length === 0) {
+    return <p className="empty compact">Aucune vente vendredi, samedi ou dimanche sur cette période.</p>;
+  }
+
+  return (
+    <div className="analytics-week-chart" aria-label="Pizzas vendues par jour de la semaine">
+      {rows.map((row) => (
+        <div className="analytics-week-row" key={row.weekStart}>
+          <div className="analytics-week-label">
+            <strong>{row.weekLabel}</strong>
+            <span>{row.total} pizza{row.total > 1 ? "s" : ""}</span>
+          </div>
+          {[
+            ["Vendredi", row.friday],
+            ["Samedi", row.saturday],
+            ["Dimanche", row.sunday],
+          ].map(([label, rawValue]) => {
+            const value = Number(rawValue);
+            const width = maxValue > 0 ? Math.max((value / maxValue) * 100, value > 0 ? 4 : 0) : 0;
+
+            return (
+              <div className="analytics-week-day" key={`${row.weekStart}-${label}`}>
+                <span>{label}</span>
+                <div className="analytics-bar-track">
+                  <div className="analytics-bar-fill" style={{ width: `${width}%` }} />
+                </div>
+                <strong>{value}</strong>
+              </div>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 
 function eventNameLabel(eventName: string): string {
   const labels: Record<string, string> = {
@@ -78,7 +200,12 @@ function eventNameLabel(eventName: string): string {
 export default async function BusinessAnalyticsPage({ searchParams }: BusinessAnalyticsPageProps) {
   const params = (await searchParams) ?? {};
   const currentRange = parseAnalyticsRange(params.range);
-  const data = await getAnalyticsDashboardData(params.range);
+  const salesMode = parsePizzaSalesMode(params.salesMode);
+  const salesDate = parsePizzaSalesDate(params.salesDate);
+  const [data, salesData] = await Promise.all([
+    getAnalyticsDashboardData(params.range),
+    getPizzaSalesAnalyticsData(params.salesMode, params.salesDate),
+  ]);
 
   return (
     <main className="page">
@@ -267,6 +394,110 @@ export default async function BusinessAnalyticsPage({ searchParams }: BusinessAn
           </div>
         </section>
       </div>
+
+      <section className="card analytics-section sales-analytics-section">
+        <div className="form-header">
+          <div>
+            <h2>Ventes pizzas</h2>
+            <p className="small">
+              Commandes réellement enregistrées pour la vue cuisine, du {salesData.startDate} au {salesData.endDate}.
+              Le chiffre d’affaires est estimé avec les prix actuels des pizzas.
+            </p>
+          </div>
+          <form className="analytics-sales-form" action="/business/analytics">
+            <input type="hidden" name="range" value={currentRange} />
+            <label>
+              Période
+              <select name="salesMode" defaultValue={salesMode}>
+                <option value="day">Jour</option>
+                <option value="week">Semaine</option>
+                <option value="month">Mois</option>
+                <option value="year">Année</option>
+              </select>
+            </label>
+            <label>
+              Date de référence
+              <input type="date" name="salesDate" defaultValue={salesDate} />
+            </label>
+            <button type="submit" className="link-button">Afficher</button>
+          </form>
+        </div>
+
+        <div className="page-actions analytics-range-actions">
+          <SalesModeLink mode="day" currentMode={salesMode} salesDate={salesDate} />
+          <SalesModeLink mode="week" currentMode={salesMode} salesDate={salesDate} />
+          <SalesModeLink mode="month" currentMode={salesMode} salesDate={salesDate} />
+          <SalesModeLink mode="year" currentMode={salesMode} salesDate={salesDate} />
+        </div>
+
+        <div className="analytics-metric-grid">
+          <MetricCard label="Commandes" value={salesData.summary.orderCount} />
+          <MetricCard label="Pizzas vendues" value={salesData.summary.pizzaCount} />
+          <article className="business-card analytics-metric-card">
+            <span className="small">CA estimé</span>
+            <strong>{formatMoney(salesData.summary.estimatedRevenueCents)}</strong>
+          </article>
+          <article className="business-card analytics-metric-card">
+            <span className="small">Panier moyen estimé</span>
+            <strong>{formatMoney(salesData.summary.averageOrderRevenueCents)}</strong>
+          </article>
+          <article className="business-card analytics-metric-card">
+            <span className="small">Pizzas / commande</span>
+            <strong>{salesData.summary.averagePizzasPerOrder.toLocaleString("fr-FR")}</strong>
+          </article>
+          <article className="business-card analytics-metric-card">
+            <span className="small">Pizza la plus vendue</span>
+            <strong className="analytics-card-text-value">{salesData.summary.topPizzaName ?? "—"}</strong>
+          </article>
+        </div>
+      </section>
+
+      <div className="analytics-two-columns">
+        <section className="card analytics-section">
+          <h2>Pizzas les plus vendues</h2>
+          <PizzaSalesBarChart rows={salesData.pizzas.slice(0, 12)} />
+        </section>
+
+        <section className="card analytics-section">
+          <h2>Vendredi / samedi / dimanche</h2>
+          <p className="small">
+            Nombre de pizzas vendues, semaine par semaine, sur les jours habituels de service.
+          </p>
+          <WeeklyWeekdayBarChart rows={salesData.weeklyWeekdays} />
+        </section>
+      </div>
+
+      <section className="card analytics-section">
+        <h2>Détail des ventes par pizza</h2>
+        <div className="table-scroll">
+          <table className="order-table analytics-table">
+            <thead>
+              <tr>
+                <th>Pizza</th>
+                <th>Quantité</th>
+                <th>Part</th>
+                <th>Commandes</th>
+                <th>CA estimé</th>
+              </tr>
+            </thead>
+            <tbody>
+              {salesData.pizzas.length === 0 ? (
+                <EmptyRow colSpan={5} />
+              ) : (
+                salesData.pizzas.map((row) => (
+                  <tr key={row.pizzaId}>
+                    <td>{row.pizzaName}</td>
+                    <td>{row.quantity}</td>
+                    <td>{formatPercent(row.sharePercent)}</td>
+                    <td>{row.orderCount}</td>
+                    <td>{formatMoney(row.estimatedRevenueCents)}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </main>
   );
 }

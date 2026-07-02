@@ -1500,3 +1500,110 @@ button.danger {
     grid-template-columns: 1fr;
   }
 }
+
+.analytics-sales-form {
+  align-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.analytics-sales-form label {
+  display: grid;
+  gap: 6px;
+  min-width: 150px;
+}
+
+.analytics-sales-form input,
+.analytics-sales-form select {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 10px 12px;
+}
+
+.analytics-card-text-value {
+  font-size: clamp(1.4rem, 3vw, 2.2rem) !important;
+  line-height: 1.08 !important;
+}
+
+.sales-analytics-section {
+  margin-top: 24px;
+}
+
+.analytics-bar-chart,
+.analytics-week-chart {
+  display: grid;
+  gap: 14px;
+}
+
+.analytics-bar-row,
+.analytics-week-row {
+  display: grid;
+  gap: 8px;
+}
+
+.analytics-bar-label,
+.analytics-week-label,
+.analytics-week-day {
+  align-items: baseline;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.analytics-bar-label span,
+.analytics-week-label span,
+.analytics-week-day span {
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.analytics-bar-track {
+  background: #f1f1f1;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  height: 16px;
+  overflow: hidden;
+}
+
+.analytics-bar-fill {
+  background: #111;
+  border-radius: inherit;
+  height: 100%;
+  min-width: 0;
+}
+
+.analytics-week-row {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 14px;
+}
+
+.analytics-week-row:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.analytics-week-day {
+  display: grid;
+  grid-template-columns: 76px minmax(140px, 1fr) 44px;
+}
+
+.analytics-week-day strong {
+  text-align: right;
+}
+
+@media (max-width: 700px) {
+  .analytics-sales-form {
+    align-items: stretch;
+    justify-content: flex-start;
+  }
+
+  .analytics-sales-form label {
+    width: 100%;
+  }
+
+  .analytics-week-day {
+    grid-template-columns: 74px minmax(100px, 1fr) 34px;
+  }
+}

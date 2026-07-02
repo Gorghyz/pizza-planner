@@ -62,6 +62,45 @@ export type AnalyticsDashboardData = {
   pizzas: AnalyticsPizzaRow[];
 };
 
+export type SalesPeriodMode = "day" | "week" | "month" | "year";
+
+export type PizzaSalesSummary = {
+  orderCount: number;
+  pizzaCount: number;
+  estimatedRevenueCents: number;
+  averagePizzasPerOrder: number;
+  averageOrderRevenueCents: number;
+  topPizzaName: string | null;
+};
+
+export type PizzaSalesRow = {
+  pizzaId: number;
+  pizzaName: string;
+  quantity: number;
+  orderCount: number;
+  estimatedRevenueCents: number;
+  sharePercent: number;
+};
+
+export type WeeklyWeekdaySalesRow = {
+  weekStart: string;
+  weekLabel: string;
+  friday: number;
+  saturday: number;
+  sunday: number;
+  total: number;
+};
+
+export type PizzaSalesAnalyticsData = {
+  mode: SalesPeriodMode;
+  referenceDate: string;
+  startDate: string;
+  endDate: string;
+  summary: PizzaSalesSummary;
+  pizzas: PizzaSalesRow[];
+  weeklyWeekdays: WeeklyWeekdaySalesRow[];
+};
+
 function getParisDateString(date = new Date()): string {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "Europe/Paris",
@@ -266,6 +305,217 @@ export async function getAnalyticsDashboardData(
       pizzaName: row.pizza_name ?? "Pizza non renseignée",
       action: row.action,
       count: Number(row.count),
+    })),
+  };
+}
+
+
+function isValidDateString(value: string | undefined): value is string {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+
+  return date.toISOString().slice(0, 10) === value;
+}
+
+function normalizeSalesMode(value: string | undefined): SalesPeriodMode {
+  if (value === "week" || value === "month" || value === "year") {
+    return value;
+  }
+
+  return "day";
+}
+
+function getMondayOfWeek(dateString: string): string {
+  const [year, month, day] = dateString.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+  const isoDay = date.getUTCDay() === 0 ? 7 : date.getUTCDay();
+  date.setUTCDate(date.getUTCDate() - (isoDay - 1));
+
+  return date.toISOString().slice(0, 10);
+}
+
+function getStartOfMonth(dateString: string): string {
+  return `${dateString.slice(0, 7)}-01`;
+}
+
+function getStartOfYear(dateString: string): string {
+  return `${dateString.slice(0, 4)}-01-01`;
+}
+
+function getSalesPeriod(mode: SalesPeriodMode, referenceDate: string) {
+  if (mode === "week") {
+    const startDate = getMondayOfWeek(referenceDate);
+    return {
+      startDate,
+      endDate: addDaysToDateString(startDate, 6),
+    };
+  }
+
+  if (mode === "month") {
+    const startDate = getStartOfMonth(referenceDate);
+    const [year, month] = startDate.split("-").map(Number);
+    const nextMonth = new Date(Date.UTC(year, month, 1, 12, 0, 0));
+    const endDate = addDaysToDateString(nextMonth.toISOString().slice(0, 10), -1);
+
+    return { startDate, endDate };
+  }
+
+  if (mode === "year") {
+    const startDate = getStartOfYear(referenceDate);
+    const endDate = `${referenceDate.slice(0, 4)}-12-31`;
+
+    return { startDate, endDate };
+  }
+
+  return {
+    startDate: referenceDate,
+    endDate: referenceDate,
+  };
+}
+
+function formatWeekLabel(weekStart: string): string {
+  const endDate = addDaysToDateString(weekStart, 6);
+  const formatter = new Intl.DateTimeFormat("fr-FR", {
+    timeZone: "Europe/Paris",
+    day: "2-digit",
+    month: "2-digit",
+  });
+
+  const [startYear, startMonth, startDay] = weekStart.split("-").map(Number);
+  const [endYear, endMonth, endDay] = endDate.split("-").map(Number);
+  const start = new Date(Date.UTC(startYear, startMonth - 1, startDay, 12, 0, 0));
+  const end = new Date(Date.UTC(endYear, endMonth - 1, endDay, 12, 0, 0));
+
+  return `${formatter.format(start)} → ${formatter.format(end)}`;
+}
+
+export function parsePizzaSalesMode(value: string | undefined): SalesPeriodMode {
+  return normalizeSalesMode(value);
+}
+
+export function parsePizzaSalesDate(value: string | undefined): string {
+  return isValidDateString(value) ? value : getParisDateString();
+}
+
+export async function getPizzaSalesAnalyticsData(
+  requestedMode: string | undefined,
+  requestedDate: string | undefined,
+): Promise<PizzaSalesAnalyticsData> {
+  const mode = normalizeSalesMode(requestedMode);
+  const referenceDate = parsePizzaSalesDate(requestedDate);
+  const { startDate, endDate } = getSalesPeriod(mode, referenceDate);
+
+  const [summaryResult, pizzasResult, weeklyResult] = await Promise.all([
+    query<{
+      order_count: string;
+      pizza_count: string;
+      estimated_revenue_cents: string;
+    }>(
+      `
+        SELECT
+          COUNT(DISTINCT o.id)::text AS order_count,
+          COALESCE(SUM(oi.quantity), 0)::text AS pizza_count,
+          COALESCE(SUM(oi.quantity * p.price_cents), 0)::text AS estimated_revenue_cents
+        FROM orders o
+        JOIN order_items oi ON oi.order_id = o.id
+        JOIN pizzas p ON p.id = oi.pizza_id
+        WHERE o.service_date BETWEEN $1::date AND $2::date
+      `,
+      [startDate, endDate],
+    ),
+    query<{
+      pizza_id: number;
+      pizza_name: string;
+      quantity: string;
+      order_count: string;
+      estimated_revenue_cents: string;
+    }>(
+      `
+        SELECT
+          p.id AS pizza_id,
+          p.name AS pizza_name,
+          SUM(oi.quantity)::text AS quantity,
+          COUNT(DISTINCT o.id)::text AS order_count,
+          COALESCE(SUM(oi.quantity * p.price_cents), 0)::text AS estimated_revenue_cents
+        FROM orders o
+        JOIN order_items oi ON oi.order_id = o.id
+        JOIN pizzas p ON p.id = oi.pizza_id
+        WHERE o.service_date BETWEEN $1::date AND $2::date
+        GROUP BY p.id, p.name, p.display_order
+        ORDER BY SUM(oi.quantity) DESC, p.display_order, p.name
+        LIMIT 30
+      `,
+      [startDate, endDate],
+    ),
+    query<{
+      week_start: string;
+      friday: string;
+      saturday: string;
+      sunday: string;
+      total: string;
+    }>(
+      `
+        SELECT
+          DATE_TRUNC('week', o.service_date)::date::text AS week_start,
+          COALESCE(SUM(oi.quantity) FILTER (WHERE EXTRACT(ISODOW FROM o.service_date) = 5), 0)::text AS friday,
+          COALESCE(SUM(oi.quantity) FILTER (WHERE EXTRACT(ISODOW FROM o.service_date) = 6), 0)::text AS saturday,
+          COALESCE(SUM(oi.quantity) FILTER (WHERE EXTRACT(ISODOW FROM o.service_date) = 7), 0)::text AS sunday,
+          COALESCE(SUM(oi.quantity) FILTER (WHERE EXTRACT(ISODOW FROM o.service_date) IN (5, 6, 7)), 0)::text AS total
+        FROM orders o
+        JOIN order_items oi ON oi.order_id = o.id
+        WHERE o.service_date BETWEEN $1::date AND $2::date
+          AND EXTRACT(ISODOW FROM o.service_date) IN (5, 6, 7)
+        GROUP BY DATE_TRUNC('week', o.service_date)::date
+        ORDER BY DATE_TRUNC('week', o.service_date)::date DESC
+      `,
+      [startDate, endDate],
+    ),
+  ]);
+
+  const summaryRow = summaryResult.rows[0];
+  const orderCount = Number(summaryRow?.order_count ?? 0);
+  const pizzaCount = Number(summaryRow?.pizza_count ?? 0);
+  const estimatedRevenueCents = Number(summaryRow?.estimated_revenue_cents ?? 0);
+
+  const pizzas = pizzasResult.rows.map((row) => {
+    const quantity = Number(row.quantity);
+
+    return {
+      pizzaId: row.pizza_id,
+      pizzaName: row.pizza_name,
+      quantity,
+      orderCount: Number(row.order_count),
+      estimatedRevenueCents: Number(row.estimated_revenue_cents),
+      sharePercent: pizzaCount > 0 ? Math.round((quantity / pizzaCount) * 1000) / 10 : 0,
+    };
+  });
+
+  return {
+    mode,
+    referenceDate,
+    startDate,
+    endDate,
+    summary: {
+      orderCount,
+      pizzaCount,
+      estimatedRevenueCents,
+      averagePizzasPerOrder: orderCount > 0 ? Math.round((pizzaCount / orderCount) * 100) / 100 : 0,
+      averageOrderRevenueCents:
+        orderCount > 0 ? Math.round(estimatedRevenueCents / orderCount) : 0,
+      topPizzaName: pizzas[0]?.pizzaName ?? null,
+    },
+    pizzas,
+    weeklyWeekdays: weeklyResult.rows.map((row) => ({
+      weekStart: row.week_start,
+      weekLabel: formatWeekLabel(row.week_start),
+      friday: Number(row.friday),
+      saturday: Number(row.saturday),
+      sunday: Number(row.sunday),
+      total: Number(row.total),
     })),
   };
 }
