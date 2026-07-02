@@ -1142,6 +1142,26 @@ export async function updateOrderStatus(
   return (result.rowCount ?? 0) > 0;
 }
 
+export async function updateOrderDetails(
+  orderId: number,
+  promisedTime: string,
+  notes: string,
+): Promise<boolean> {
+  const result = await query(
+    `
+      UPDATE orders
+      SET
+        desired_time = $2::time,
+        promised_time = $2::time,
+        notes = NULLIF(BTRIM($3), '')
+      WHERE id = $1;
+    `,
+    [orderId, promisedTime, notes],
+  );
+
+  return (result.rowCount ?? 0) > 0;
+}
+
 export async function createOrder(input: CreateOrderInput): Promise<number> {
   const client = await pool.connect();
 

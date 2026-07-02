@@ -663,6 +663,17 @@ button:disabled {
   border-color: #ee9c9c;
 }
 
+.urgency-purple {
+  background: #f0e7ff;
+  border-color: #9b6bd3;
+}
+
+.kitchen-overlap-warning {
+  color: #5d3197;
+  font-weight: 800;
+  margin-top: 6px;
+}
+
 .kitchen-card-top {
   display: flex;
   justify-content: space-between;
@@ -691,6 +702,18 @@ button:disabled {
   gap: 10px;
   flex-wrap: wrap;
   margin-top: 16px;
+}
+
+.kitchen-edit-panel {
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px dashed rgba(0, 0, 0, 0.24);
+  border-radius: 14px;
+  margin-top: 16px;
+  padding: 14px;
+}
+
+.kitchen-edit-panel textarea {
+  min-height: 84px;
 }
 
 .request-grid {
