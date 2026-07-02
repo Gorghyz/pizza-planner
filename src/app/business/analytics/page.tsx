@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { AutoAnalyticsSalesForm } from "@/components/business-auto-date-form";
 import BusinessSectionNav from "@/components/business-navigation";
 import {
   getAnalyticsDashboardData,
@@ -45,12 +46,22 @@ function EmptyRow({ colSpan }: { colSpan: number }) {
   );
 }
 
-function RangeLink({ range, currentRange }: { range: 7 | 30 | 90; currentRange: 7 | 30 | 90 }) {
+function RangeLink({
+  range,
+  currentRange,
+  salesMode,
+  salesDate,
+}: {
+  range: 7 | 30 | 90;
+  currentRange: 7 | 30 | 90;
+  salesMode: "day" | "week" | "month" | "year";
+  salesDate: string;
+}) {
   const isCurrent = range === currentRange;
 
   return (
     <Link
-      href={`/business/analytics?range=${range}`}
+      href={`/business/analytics?range=${range}&salesMode=${salesMode}&salesDate=${salesDate}`}
       className={isCurrent ? "link-button" : "link-button secondary-link"}
       aria-current={isCurrent ? "page" : undefined}
     >
@@ -228,9 +239,9 @@ export default async function BusinessAnalyticsPage({ searchParams }: BusinessAn
             </p>
           </div>
           <div className="page-actions analytics-range-actions">
-            <RangeLink range={7} currentRange={currentRange} />
-            <RangeLink range={30} currentRange={currentRange} />
-            <RangeLink range={90} currentRange={currentRange} />
+            <RangeLink range={7} currentRange={currentRange} salesMode={salesMode} salesDate={salesDate} />
+            <RangeLink range={30} currentRange={currentRange} salesMode={salesMode} salesDate={salesDate} />
+            <RangeLink range={90} currentRange={currentRange} salesMode={salesMode} salesDate={salesDate} />
           </div>
         </div>
 
@@ -404,23 +415,12 @@ export default async function BusinessAnalyticsPage({ searchParams }: BusinessAn
               Le chiffre d’affaires est estimé avec les prix actuels des pizzas.
             </p>
           </div>
-          <form className="analytics-sales-form" action="/business/analytics">
-            <input type="hidden" name="range" value={currentRange} />
-            <label>
-              Période
-              <select name="salesMode" defaultValue={salesMode}>
-                <option value="day">Jour</option>
-                <option value="week">Semaine</option>
-                <option value="month">Mois</option>
-                <option value="year">Année</option>
-              </select>
-            </label>
-            <label>
-              Date de référence
-              <input type="date" name="salesDate" defaultValue={salesDate} />
-            </label>
-            <button type="submit" className="link-button">Afficher</button>
-          </form>
+          <AutoAnalyticsSalesForm
+            key={`${salesMode}-${salesDate}-${currentRange}`}
+            range={currentRange}
+            salesMode={salesMode}
+            salesDate={salesDate}
+          />
         </div>
 
         <div className="page-actions analytics-range-actions">

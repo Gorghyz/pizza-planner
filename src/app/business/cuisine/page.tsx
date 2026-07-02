@@ -1,3 +1,4 @@
+import { AutoServiceDateForm } from "@/components/business-auto-date-form";
 import BusinessSectionNav from "@/components/business-navigation";
 import KitchenBoard from "@/components/kitchen-board";
 import { getOrdersForDate } from "@/lib/data";
@@ -37,15 +38,12 @@ export default async function BusinessKitchenPage({ searchParams }: BusinessKitc
             <p className="small">Sélectionne une autre date pour préparer un service futur.</p>
           </div>
 
-          <form className="date-selector-form" action="/business/cuisine">
-            <div className="field">
-              <label htmlFor="service-date">Date du service</label>
-              <input id="service-date" name="date" type="date" defaultValue={serviceDate} />
-            </div>
-            <button type="submit" className="secondary">
-              Afficher
-            </button>
-          </form>
+          <AutoServiceDateForm
+            key={serviceDate}
+            actionPath="/business/cuisine"
+            value={serviceDate}
+            label="Date du service"
+          />
         </div>
       </section>
 

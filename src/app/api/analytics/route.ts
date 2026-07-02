@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 
+import { APP_TIME_ZONE } from "@/lib/config";
 import { query } from "@/lib/db";
 
 const MAX_METADATA_LENGTH = 4000;
 
 function getParisDateString(): string {
   return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Paris",
+    timeZone: APP_TIME_ZONE,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",

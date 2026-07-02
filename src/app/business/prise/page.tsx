@@ -1,3 +1,4 @@
+import { AutoServiceDateForm } from "@/components/business-auto-date-form";
 import BusinessSectionNav from "@/components/business-navigation";
 import OrderScreen from "@/components/order-screen";
 import { getActivePizzas, getOrdersForDate, getServiceSettingsForDate } from "@/lib/data";
@@ -44,15 +45,12 @@ export default async function BusinessOrderPage({ searchParams }: BusinessOrderP
             </p>
           </div>
 
-          <form className="date-selector-form" action="/business/prise">
-            <div className="field">
-              <label htmlFor="service-date">Date du service</label>
-              <input id="service-date" name="date" type="date" defaultValue={serviceDate} />
-            </div>
-            <button type="submit" className="secondary">
-              Afficher
-            </button>
-          </form>
+          <AutoServiceDateForm
+            key={serviceDate}
+            actionPath="/business/prise"
+            value={serviceDate}
+            label="Date du service"
+          />
         </div>
 
         <ul className="rule-list">

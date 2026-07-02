@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { APP_TIME_ZONE } from "@/lib/config";
 import type { OrderStatus, TodayOrder } from "@/lib/types";
 
 type KitchenBoardProps = {
@@ -214,6 +215,7 @@ export default function KitchenBoard({ orders, serviceDateLabel }: KitchenBoardP
         <div className="small">
           Heure actuelle :{" "}
           {now.toLocaleTimeString("fr-FR", {
+            timeZone: APP_TIME_ZONE,
             hour: "2-digit",
             minute: "2-digit",
           })}

@@ -1,3 +1,4 @@
+import { APP_TIME_ZONE } from "@/lib/config";
 import { query } from "@/lib/db";
 
 type RawCountRow = {
@@ -103,7 +104,7 @@ export type PizzaSalesAnalyticsData = {
 
 function getParisDateString(date = new Date()): string {
   return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Paris",
+    timeZone: APP_TIME_ZONE,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -380,7 +381,7 @@ function getSalesPeriod(mode: SalesPeriodMode, referenceDate: string) {
 function formatWeekLabel(weekStart: string): string {
   const endDate = addDaysToDateString(weekStart, 6);
   const formatter = new Intl.DateTimeFormat("fr-FR", {
-    timeZone: "Europe/Paris",
+    timeZone: APP_TIME_ZONE,
     day: "2-digit",
     month: "2-digit",
   });
