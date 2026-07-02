@@ -1438,3 +1438,65 @@ button.danger {
 .empty.compact {
   margin: 8px 0 0 0;
 }
+
+.analytics-section {
+  display: grid;
+  gap: 16px;
+}
+
+.analytics-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.analytics-metric-card {
+  min-height: auto;
+  gap: 6px;
+}
+
+.analytics-metric-card strong {
+  display: block;
+  font-size: clamp(2rem, 5vw, 3.2rem);
+  line-height: 1;
+}
+
+.analytics-metric-card p {
+  margin: 0;
+}
+
+.analytics-two-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.analytics-table th,
+.analytics-table td {
+  vertical-align: top;
+}
+
+.analytics-range-actions {
+  justify-content: flex-end;
+}
+
+.empty-table-cell {
+  color: #6b7280;
+  font-style: italic;
+  text-align: center;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+@media (max-width: 700px) {
+  .analytics-range-actions {
+    justify-content: flex-start;
+  }
+
+  .analytics-two-columns {
+    grid-template-columns: 1fr;
+  }
+}

@@ -53,6 +53,10 @@ const SITE_ADMIN_NAV_ITEMS: BusinessNavItem[] = [
     label: "Calendrier",
   },
   {
+    href: "/business/analytics",
+    label: "Analytics",
+  },
+  {
     href: "/business/admin",
     label: "Réglages business",
   },

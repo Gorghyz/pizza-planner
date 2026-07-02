@@ -1522,3 +1522,16 @@
   text-align: center;
   text-decoration: none;
 }
+
+.att-phone-inline-link {
+  color: inherit;
+  font-weight: 900;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+
+.att-phone-inline-link:hover,
+.att-phone-inline-link:focus-visible {
+  text-decoration-thickness: 3px;
+}

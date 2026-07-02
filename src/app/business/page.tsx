@@ -55,6 +55,12 @@ const SITE_ADMIN_LINKS = [
       "Voir les jours ouverts, poser des fermetures exceptionnelles et ajouter des ouvertures ponctuelles.",
   },
   {
+    href: "/business/analytics",
+    title: "Analytics",
+    description:
+      "Consulter les vues, les clics et les parcours globaux du site sans suivre les visiteurs individuellement.",
+  },
+  {
     href: "/business/admin",
     title: "Réglages business",
     description:

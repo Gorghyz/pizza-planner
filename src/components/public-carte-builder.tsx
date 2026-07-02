@@ -648,23 +648,20 @@ export default function PublicCarteBuilder({ pizzas, orderContext }: PublicCarte
             ) : (
               <>
                 Vous pouvez naturellement commander vos pizzas par téléphone au{" "}
-                <strong>06-79-95-89-62</strong>, mais en dehors des heures de service,
-                merci de privilégier la prise de contact par le formulaire ci-dessous.
+                <a
+                  href={`tel:${normalizePhoneForSmsLink(ORDER_PHONE_NUMBER)}`}
+                  className="att-phone-inline-link"
+                  data-analytics-event="phone_click"
+                  data-analytics-label="Numéro de téléphone depuis la carte"
+                  data-analytics-target="telephone"
+                >
+                  06-79-95-89-62
+                </a>
+                , mais en dehors des heures de service, merci de privilégier la prise
+                de contact par le formulaire ci-dessous.
               </>
             )}
           </p>
-
-          <div className="att-order-contact-actions">
-            <a
-              href={`tel:${normalizePhoneForSmsLink(ORDER_PHONE_NUMBER)}`}
-              className="att-secondary-outline-button att-phone-call-button"
-              data-analytics-event="phone_click"
-              data-analytics-label="Appeler depuis la carte"
-              data-analytics-target="telephone"
-            >
-              Appeler
-            </a>
-          </div>
 
           <h2>{orderTitle}</h2>
 
